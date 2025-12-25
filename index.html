@@ -32,6 +32,12 @@
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Estilos para inputs de fecha en modo oscuro */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden relative">
@@ -101,7 +107,30 @@
                             <option value="">Todas</option>
                         </select>
                     </div>
-                    <button onclick="resetFilters(); toggleMobileMenu()" class="w-full py-2 text-xs border border-slate-600 rounded hover:bg-slate-700 mt-2">
+                    <!-- FILTRO DE USUARIO AÑADIDO AQUÍ -->
+                    <div>
+                        <label class="text-xs text-slate-400">Usuario</label>
+                        <select id="filter-user" class="w-full bg-slate-700 text-sm rounded p-2 mt-1 border border-slate-600 focus:border-blue-500 outline-none" onchange="applyFilters(); toggleMobileMenu()">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+
+                    <!-- FILTRO DE FECHAS -->
+                    <div class="pt-2 border-t border-slate-700 mt-2">
+                        <label class="text-xs text-slate-400 block mb-1">Rango de Fechas</label>
+                        <div class="space-y-2">
+                            <div>
+                                <label class="text-[10px] text-slate-500 uppercase">Desde</label>
+                                <input type="date" id="filter-date-start" class="w-full bg-slate-700 text-sm rounded p-2 border border-slate-600 focus:border-blue-500 outline-none text-slate-200" onchange="applyFilters()">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-500 uppercase">Hasta</label>
+                                <input type="date" id="filter-date-end" class="w-full bg-slate-700 text-sm rounded p-2 border border-slate-600 focus:border-blue-500 outline-none text-slate-200" onchange="applyFilters()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="resetFilters(); toggleMobileMenu()" class="w-full py-2 text-xs border border-slate-600 rounded hover:bg-slate-700 mt-2 transition-colors">
                         Limpiar Filtros
                     </button>
                 </div>
@@ -213,6 +242,7 @@
                                 <th class="px-6 py-3" onclick="sortTable('Supermercado')">Super <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                                 <th class="px-6 py-3 hidden md:table-cell" onclick="sortTable('Articulo')">Artículo <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                                 <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Categoria')">Cat. <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Usuario')">Usuario <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                                 <th class="px-6 py-3 text-right" onclick="sortTable('Total')">Precio <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                             </tr>
                         </thead>
@@ -332,6 +362,7 @@
             const vendors = ['LIDL', 'Mercadona', 'Carrefour', 'Dia', 'Repsol'];
             const cats = ['Alimentación', 'Higiene', 'Limpieza', 'Gasolina', 'Bazar'];
             const products = ['Leche', 'Pan', 'Detergente', 'Gasolina 95', 'Galletas', 'Fruta', 'Verdura', 'Champú'];
+            const users = ['Juan', 'Maria', 'Carlos'];
             let data = [];
             for(let i=0; i<50; i++) {
                 const date = new Date();
@@ -344,7 +375,8 @@
                     Articulo: products[Math.floor(Math.random()*products.length)],
                     CantidadPeso: 1,
                     Total: parseFloat((Math.random() * 20 + 1).toFixed(2)),
-                    Categoria: cats[Math.floor(Math.random()*cats.length)]
+                    Categoria: cats[Math.floor(Math.random()*cats.length)],
+                    Usuario: users[Math.floor(Math.random()*users.length)]
                 });
             }
             return data;
@@ -353,15 +385,19 @@
         function populateFilters() {
             const vendors = [...new Set(allData.map(d => d.Supermercado))].sort();
             const cats = [...new Set(allData.map(d => d.Categoria))].sort();
+            const users = [...new Set(allData.map(d => d.Usuario))].sort();
 
             const vendorSel = document.getElementById('filter-supermarket');
             const catSel = document.getElementById('filter-category');
+            const userSel = document.getElementById('filter-user');
             
             const currentVendor = vendorSel.value;
             const currentCat = catSel.value;
+            const currentUser = userSel.value;
             
             vendorSel.innerHTML = '<option value="">Todos</option>';
             catSel.innerHTML = '<option value="">Todas</option>';
+            userSel.innerHTML = '<option value="">Todos</option>';
 
             vendors.forEach(v => {
                 const opt = document.createElement('option');
@@ -373,23 +409,35 @@
                 opt.value = c; opt.innerText = c;
                 catSel.appendChild(opt);
             });
+            users.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u; opt.innerText = u;
+                userSel.appendChild(opt);
+            });
             
             if(vendors.includes(currentVendor)) vendorSel.value = currentVendor;
             if(cats.includes(currentCat)) catSel.value = currentCat;
+            if(users.includes(currentUser)) userSel.value = currentUser;
         }
 
         function applyFilters() {
             const vendorFilter = document.getElementById('filter-supermarket').value;
             const catFilter = document.getElementById('filter-category').value;
+            const userFilter = document.getElementById('filter-user').value;
+            const dateStart = document.getElementById('filter-date-start').value;
+            const dateEnd = document.getElementById('filter-date-end').value;
             const search = document.getElementById('search-input').value.toLowerCase();
 
             filteredData = allData.filter(item => {
                 const matchVendor = !vendorFilter || item.Supermercado === vendorFilter;
                 const matchCat = !catFilter || item.Categoria === catFilter;
+                const matchUser = !userFilter || item.Usuario === userFilter;
+                const matchDateStart = !dateStart || item.Fecha >= dateStart;
+                const matchDateEnd = !dateEnd || item.Fecha <= dateEnd;
                 const matchSearch = !search || 
                                     item.Articulo.toLowerCase().includes(search) || 
                                     item.Supermercado.toLowerCase().includes(search);
-                return matchVendor && matchCat && matchSearch;
+                return matchVendor && matchCat && matchUser && matchDateStart && matchDateEnd && matchSearch;
             });
 
             filteredData.sort((a, b) => {
@@ -410,6 +458,9 @@
         function resetFilters() {
             document.getElementById('filter-supermarket').value = "";
             document.getElementById('filter-category').value = "";
+            document.getElementById('filter-user').value = "";
+            document.getElementById('filter-date-start').value = "";
+            document.getElementById('filter-date-end').value = "";
             document.getElementById('search-input').value = "";
             applyFilters();
         }
@@ -450,7 +501,7 @@
             const pageData = filteredData.slice(start, end);
 
             if (pageData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-400">No se encontraron datos</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-400">No se encontraron datos</td></tr>';
                 document.getElementById('pagination-info').innerText = '0 de 0';
                 return;
             }
@@ -469,6 +520,7 @@
                     <td class="px-6 py-4">${row.Supermercado}</td>
                     <td class="px-6 py-4 truncate max-w-xs hidden md:table-cell" title="${row.Articulo}">${row.Articulo}</td>
                     <td class="px-6 py-4 hidden sm:table-cell"><span class="${catColor} text-xs font-medium mr-2 px-2.5 py-0.5 rounded">${row.Categoria}</span></td>
+                    <td class="px-6 py-4 hidden sm:table-cell text-gray-500">${row.Usuario}</td>
                     <td class="px-6 py-4 text-right font-bold">${parseFloat(row.Total).toFixed(2)} €</td>
                 `;
                 tbody.appendChild(tr);
