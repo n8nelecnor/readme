@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM Gestión de Gastos - Tickets</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Librería para leer Excel/ODS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1e3a8a; /* Azul oscuro */
+            --secondary: #3b82f6; /* Azul brillante */
+            --bg: #f8fafc; /* Fondo claro */
+            --surface: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* --- Header & Dashboard --- */
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .kpi-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .kpi-label { font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.25rem; }
+        .kpi-value { font-size: 1.5rem; font-weight: 700; }
+
+        /* --- Layout Principal --- */
+        .main-container {
+            display: flex;
+            flex: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 1.5rem;
+            gap: 1.5rem;
+        }
+
+        /* --- Sidebar Filtros --- */
+        .sidebar {
+            width: 300px;
+            flex-shrink: 0;
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: fit-content;
+            position: sticky;
+            top: 1.5rem;
+        }
+
+        .sidebar h3 { margin-bottom: 1rem; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; }
+        
+        .filter-group { margin-bottom: 1.25rem; }
+        .filter-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; }
+        
+        select, input[type="date"], input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background-color: #fff;
+            color: var(--text);
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        select:focus, input:focus { outline: none; border-color: var(--secondary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+
+        .btn-group { display: flex; gap: 0.5rem; margin-top: 1.5rem; }
+        
+        button {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary { background-color: var(--secondary); color: white; }
+        .btn-primary:hover { background-color: var(--primary); }
+        
+        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text-light); }
+        .btn-outline:hover { border-color: var(--text); color: var(--text); }
+
+        /* Input File oculto */
+        #file-input { display: none; }
+
+        /* --- Contenido Central --- */
+        .content { flex: 1; min-width: 0; /* Evita desbordamiento en flex items */ }
+
+        /* --- Gráficos --- */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--surface);
+            padding: 1.25rem;
+            border-radius: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        /* Modificación para el gráfico circular expandido */
+        .chart-card.wide {
+            grid-column: span 2;
+        }
+
+        .pie-layout {
+            display: flex;
+            gap: 1.5rem;
+            height: 320px; /* Altura aumentada para equilibrar gráfico y lista */
+            align-items: stretch;
+        }
+
+        .pie-chart-container {
+            flex: 1; /* Ocupa el 50% del espacio (izquierda) */
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        .pie-details-container {
+            flex: 1; /* Ocupa el 50% del espacio (derecha) */
+            border-left: 1px solid var(--border);
+            padding-left: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* Vistas intercambiables del panel derecho */
+        #pie-summary-view, #pie-entries-view {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .view-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0.5rem;
+            min-height: 40px;
+        }
+        
+        .view-title { font-weight: 600; color: var(--text); font-size: 0.95rem; }
+
+        .btn-back {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.8rem;
+            background: #f1f5f9;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 0.25rem;
+            /* Añadido para evitar que herede el tamaño grande global y se ajuste al contenido */
+            flex: none; 
+            width: auto;
+        }
+        .btn-back:hover { background: #e2e8f0; }
+
+        .detail-list-wrapper {
+            flex: 1; /* Se expande para ocupar todo el alto restante */
+            overflow-y: auto; /* Scroll automático */
+            padding-right: 5px;
+        }
+
+        .detail-table {
+            width: 100%;
+            font-size: 0.85rem;
+            border-collapse: collapse;
+        }
+
+        .detail-table td, .detail-table th {
+            padding: 8px 6px;
+            border-bottom: 1px solid #f1f5f9;
+            color: var(--text);
+            text-align: left;
+        }
+        
+        .detail-table th { color: var(--text-light); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; }
+        .detail-table tr:last-child td { border-bottom: none; }
+        .detail-table tr.clickable:hover { background-color: #f8fafc; cursor: pointer; }
+
+        /* Estilos específicos para la tabla de leyenda */
+        .legend-color-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .text-right { text-align: right !important; }
+
+        /* Custom scrollbar */
+        .detail-list-wrapper::-webkit-scrollbar { width: 4px; }
+        .detail-list-wrapper::-webkit-scrollbar-track { background: #f1f5f9; }
+        .detail-list-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+
+        .chart-header { margin-bottom: 1rem; font-weight: 600; color: var(--text); }
+        
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+        
+        /* Fix height for bar charts specifically */
+        .chart-card:not(.wide) canvas {
+            height: 250px !important;
+        }
+
+        /* Tooltip Customizado para Canvas */
+        #chart-tooltip {
+            position: absolute;
+            display: none;
+            background: rgba(30, 41, 59, 0.95);
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            pointer-events: none;
+            z-index: 10;
+            transform: translate(-50%, -120%);
+            white-space: nowrap;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- Tabla --- */
+        .table-card {
+            background: var(--surface);
+            border-radius: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .table-header-controls {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .search-box {
+            position: relative;
+            width: 300px;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+            color: var(--text-light);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        th:hover { color: var(--primary); background-color: #e2e8f0; }
+
+        tr:hover { background-color: #f8fafc; }
+        
+        /* Highlight para categorías */
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .cat-alimentacion { background: #dcfce7; color: #166534; }
+        .cat-gasolina { background: #fee2e2; color: #991b1b; }
+        .cat-limpieza { background: #e0f2fe; color: #075985; }
+        .cat-otros { background: #f1f5f9; color: #475569; }
+
+        .pagination {
+            padding: 1rem;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .page-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.375rem;
+            border: 1px solid var(--border);
+            background: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .page-btn.active { background: var(--secondary); color: white; border-color: var(--secondary); }
+        .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .main-container { flex-direction: column; }
+            .sidebar { width: 100%; position: static; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .chart-card.wide { grid-column: span 1; }
+            .pie-layout { flex-direction: column; height: auto; }
+            .pie-chart-container { height: 250px; }
+            .pie-details-container { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 1rem; height: 320px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <div class="header-top">
+            <div>
+                <h1 style="font-size: 1.5rem; font-weight: 700;">Gestor de Tickets</h1>
+                <p style="opacity: 0.8; font-size: 0.9rem;">Panel de control financiero</p>
+            </div>
+            <div style="text-align: right;">
+                <div id="date-display" style="font-size: 0.9rem; opacity: 0.9;"></div>
+            </div>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Gasto Total (Filtros)</div>
+                <div class="kpi-value" id="kpi-total">0,00 €</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Ticket Medio</div>
+                <div class="kpi-value" id="kpi-average">0,00 €</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Gasto Mes Actual</div>
+                <div class="kpi-value" id="kpi-current-month">0,00 €</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Registros</div>
+                <div class="kpi-value" id="kpi-count">0</div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="main-container">
+    <!-- Sidebar Filtros -->
+    <aside class="sidebar">
+        <h3>
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+            Filtros
+        </h3>
+        
+        <div class="filter-group">
+            <label>Desde:</label>
+            <input type="date" id="filter-date-start">
+        </div>
+        
+        <div class="filter-group">
+            <label>Hasta:</label>
+            <input type="date" id="filter-date-end">
+        </div>
+
+        <div class="filter-group">
+            <label>Categoría:</label>
+            <select id="filter-category">
+                <option value="">Todas</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Población:</label>
+            <select id="filter-city">
+                <option value="">Todas</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Proveedor:</label>
+            <select id="filter-provider">
+                <option value="">Todos</option>
+            </select>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-outline" onclick="resetFilters()">Limpiar</button>
+            <button class="btn-primary" onclick="exportToCSV()">Exportar CSV</button>
+        </div>
+        <!-- Botón de Importación añadido -->
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+            <button class="btn-outline" style="width: 100%; border-style: dashed;" onclick="document.getElementById('file-input').click()">
+                <i class="fas fa-file-upload mr-2"></i> Importar Archivo
+            </button>
+            <input type="file" id="file-input" accept=".ods, .xlsx, .xls, .csv" onchange="handleFileUpload(event)">
+            <p style="font-size: 0.75rem; color: var(--text-light); text-align: center; margin-top: 0.5rem;">Soporta: .ods, .xlsx, .csv</p>
+        </div>
+    </aside>
+
+    <!-- Contenido Principal -->
+    <main class="content">
+        <!-- Gráficos -->
+        <div class="charts-grid">
+            <!-- Modificado: Gráfico Comparativo Mes Actual vs Anterior (Wide para que quepan los dos) -->
+            <div class="chart-card wide">
+                <div class="chart-header">Comparativa Categorías (Mes Actual vs Anterior)</div>
+                <div style="display: flex; gap: 1rem; height: 100%;">
+                    <div style="flex: 1; position: relative; min-width: 0;">
+                        <div style="text-align: center; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem; text-transform: uppercase;">Mes Actual (Dic)</div>
+                        <canvas id="canvas-cat-current"></canvas>
+                    </div>
+                    <!-- Línea separadora vertical sutil -->
+                    <div style="width: 1px; background-color: #e2e8f0; margin: 0 0.5rem;"></div>
+                    <div style="flex: 1; position: relative; min-width: 0;">
+                        <div style="text-align: center; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem; text-transform: uppercase;">Mes Anterior (Nov)</div>
+                        <canvas id="canvas-cat-prev"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gráfico Circular Mejorado con Panel Intercambiable -->
+            <div class="chart-card wide">
+                <div class="chart-header">Distribución por Categoría</div>
+                <div class="pie-layout">
+                    <div class="pie-chart-container">
+                        <canvas id="canvas-pie"></canvas>
+                    </div>
+                    <div class="pie-details-container">
+                        
+                        <!-- VISTA 1: RESUMEN DE CATEGORÍAS (Default) -->
+                        <div id="pie-summary-view">
+                            <div class="view-header">
+                                <span class="view-title">Desglose de Categorías</span>
+                            </div>
+                            <div class="detail-list-wrapper">
+                                <table class="detail-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Categoría</th>
+                                            <th class="text-right">%</th>
+                                            <th class="text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pie-summary-body">
+                                        <!-- Injected by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- VISTA 2: DETALLE DE ENTRADAS (On Click) -->
+                        <div id="pie-entries-view" style="display: none;">
+                            <!-- Cambiado: justify-content start y reordenado para poner el botón a la izquierda -->
+                            <div class="view-header" style="justify-content: flex-start; gap: 0.75rem;">
+                                <button class="btn-back" onclick="showPieSummary()">← Volver</button>
+                                <span class="view-title" id="entries-title">Entradas</span>
+                            </div>
+                            <div class="detail-list-wrapper">
+                                <table class="detail-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Artículo / Fecha</th>
+                                            <th class="text-right">Importe</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pie-entries-body">
+                                        <!-- Injected by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">Gasto Mensual</div>
+                <canvas id="canvas-month"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-header">Gasto por Población</div>
+                <canvas id="canvas-city"></canvas>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="table-card">
+            <div class="table-header-controls">
+                <h3 style="color: var(--primary);">Detalle de Tickets</h3>
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Buscar artículo..." onkeyup="handleSearch()">
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table id="tickets-table">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('Fecha')">Fecha ↕</th>
+                            <th onclick="sortTable('Nombre_Supermercado')">Proveedor ↕</th>
+                            <th onclick="sortTable('Población')">Población ↕</th>
+                            <th onclick="sortTable('Articulo')">Artículo ↕</th>
+                            <th onclick="sortTable('Categoria')">Categoría ↕</th>
+                            <th onclick="sortTable('Precio_Final')" style="text-align: right;">Precio (€) ↕</th>
+                            <th onclick="sortTable('Total_Ticket')" style="text-align: right;">Total Ticket (€) ↕</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination" id="pagination-controls">
+                <!-- Pagination buttons injected via JS -->
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Tooltip Global -->
+<div id="chart-tooltip"></div>
+
+    <script>
+    // --- 0. CONFIGURACIÓN API ---
+    // URL del Webhook de n8n (Método GET)
+    const API_URL = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/64dbf343-08e3-4a0b-8c8f-cd87c1554115';
+
+    // --- 1. DATOS DE ENTRADA (Simulados para ~85 registros robustos) ---
+    // Generador de datos determinista para simular la carga del archivo
+    const generateData = () => {
+        const supermarkets = [
+            { name: "LIDL", city: "Dos Hermanas", addr: "Av. España" },
+            { name: "LIDL", city: "Sevilla", addr: "Av. Kansas City" },
+            { name: "Mercadona", city: "Sevilla", addr: "Calle Real" },
+            { name: "Mercadona", city: "Dos Hermanas", addr: "C/ Tajo" },
+            { name: "Repsol", city: "Sevilla", addr: "SE-30" },
+            { name: "Repsol", city: "Montequinto", addr: "Autovía Utrera" },
+            { name: "Carrefour", city: "Sevilla", addr: "San Pablo" },
+            { name: "Dia", city: "Dos Hermanas", addr: "Centro" }
+        ];
+
+        const products = [
+            { name: "PUERRO 500G", cat: "Alimentación", price: 2.29 },
+            { name: "Gasolina Efitec 95", cat: "Gasolina", price: 1.64 },
+            { name: "Detergente Líquido", cat: "Productos de limpieza", price: 4.50 },
+            { name: "Leche Entera 1L", cat: "Alimentación", price: 0.95 },
+            { name: "Pan de Molde", cat: "Alimentación", price: 1.25 },
+            { name: "Cerveza Pack 6", cat: "Alimentación", price: 3.50 },
+            { name: "Camiseta Básica", cat: "Ropa", price: 5.99 },
+            { name: "Desayuno Café+Tostada", cat: "Bares", price: 2.80 },
+            { name: "Manzanas 1kg", cat: "Alimentación", price: 1.99 },
+            { name: "Champú", cat: "Higiene", price: 3.20 },
+            { name: "Aceite de Oliva 1L", cat: "Alimentación", price: 8.50 },
+            { name: "Papel Higiénico", cat: "Productos de limpieza", price: 4.20 }
+        ];
+
+        let data = [];
+        // Fechas entre Oct 2025 y Dic 2025 (y Ene 2026)
+        const start = new Date(2025, 9, 1);
+        
+        for (let i = 0; i < 85; i++) {
+            const sm = supermarkets[Math.floor(Math.random() * supermarkets.length)];
+            const prod = products[Math.floor(Math.random() * products.length)];
+            
+            // Random date
+            const date = new Date(start.getTime() + Math.random() * (1000 * 60 * 60 * 24 * 90));
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            const hh = String(Math.floor(Math.random()*14)+8).padStart(2,'0') + ":" + String(Math.floor(Math.random()*60)).padStart(2,'0') + ":00";
+
+            let qty = prod.cat === 'Gasolina' ? (Math.random() * 30 + 20).toFixed(2) : Math.floor(Math.random() * 3) + 1;
+            qty = Number(qty);
+            
+            const total = qty * prod.price;
+            
+            // A veces el ticket tiene más cosas, simulamos el total del ticket siendo >= precio_final
+            const totalTicket = (total * (1 + Math.random())).toFixed(2);
+
+            data.push({
+                Nombre_Supermercado: sm.name,
+                Direccion: sm.addr,
+                Poblacion: sm.city,
+                Fecha: `${yyyy}-${mm}-${dd}`,
+                Hora: hh,
+                Articulo: prod.name,
+                Cantidad: qty,
+                Precio_Unitario: prod.price,
+                Descuento: 0,
+                Precio_Final: Number(total.toFixed(2)),
+                Categoria: prod.cat,
+                Total_Ticket: Number(totalTicket)
+            });
+        }
+        
+        // Añadir los ejemplos específicos del usuario al inicio
+        data.unshift(
+            {Nombre_Supermercado:"LIDL",Direccion:"Av. España",Poblacion:"Dos Hermanas",Fecha:"2025-12-01",Hora:"18:03:59",Articulo:"PUERRO 500G",Cantidad:1,Precio_Unitario:2.29,Descuento:0,Precio_Final:2.29,Categoria:"Alimentación",Total_Ticket:3.52},
+            {Nombre_Supermercado:"Repsol",Direccion:"SE-30",Poblacion:"Sevilla",Fecha:"2025-12-02",Hora:"08:30:45",Articulo:"Gasolina Efitec 95",Cantidad:45.5,Precio_Unitario:1.64,Descuento:0,Precio_Final:74.62,Categoria:"Gasolina",Total_Ticket:74.62},
+            {Nombre_Supermercado:"Mercadona",Direccion:"Calle Real",Poblacion:"Sevilla",Fecha:"2025-12-01",Hora:"10:15:20",Articulo:"Detergente Líquido",Cantidad:1,Precio_Unitario:4.50,Descuento:0,Precio_Final:4.50,Categoria:"Productos de limpieza",Total_Ticket:4.50}
+        );
+
+        return data.sort((a,b) => new Date(b.Fecha) - new Date(a.Fecha)); // Sort desc
+    };
+
+    // Inicializamos con datos simulados por defecto (Fallback)
+    let tickets = generateData();
+
+    // --- 2. ESTADO DE LA APLICACIÓN ---
+    let state = {
+        filteredData: [...tickets],
+        currentPage: 1,
+        rowsPerPage: 20,
+        sortCol: 'Fecha',
+        sortAsc: false,
+        filters: {
+            start: '',
+            end: '',
+            category: '',
+            city: '',
+            provider: ''
+        },
+        // Mapeo de colores para consistencia entre chart y leyenda
+        categoryColors: {} 
+    };
+
+    // --- 3. INICIALIZACIÓN ---
+    window.onload = async () => {
+        // Intentar cargar datos del Webhook de n8n antes de renderizar
+        await loadDataFromN8N();
+
+        loadFilters();
+        populateSelects();
+        updateDateDisplay();
+        assignColors(); // Asignar colores fijos al inicio
+        applyFilters(); // Esto dispara renderDashboard, renderTable, renderCharts
+        
+        // Event Listeners para Filtros
+        document.getElementById('filter-date-start').addEventListener('change', (e) => updateFilter('start', e.target.value));
+        document.getElementById('filter-date-end').addEventListener('change', (e) => updateFilter('end', e.target.value));
+        document.getElementById('filter-category').addEventListener('change', (e) => updateFilter('category', e.target.value));
+        document.getElementById('filter-city').addEventListener('change', (e) => updateFilter('city', e.target.value));
+        document.getElementById('filter-provider').addEventListener('change', (e) => updateFilter('provider', e.target.value));
+    };
+
+    // Nueva función para obtener datos externos
+    async function loadDataFromN8N() {
+        const dateDisplay = document.getElementById('date-display');
+        try {
+            // Indicador de carga sutil
+            const originalText = dateDisplay.innerText;
+            dateDisplay.innerHTML = '<span style="color:#3b82f6"><i class="fas fa-sync fa-spin"></i> Conectando...</span>';
+
+            // Explicitly using GET as requested
+            const response = await fetch(API_URL, { method: 'GET' });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Validación básica: Si recibimos un array con datos, lo usamos
+                if (Array.isArray(data) && data.length > 0) {
+                    processAndLoadData(data, "En vivo");
+                    return;
+                }
+            }
+            throw new Error("Formato de datos inválido o respuesta vacía");
+
+        } catch (error) {
+            console.warn("⚠️ No se pudo conectar con n8n, usando datos simulados:", error);
+            // Restaurar visualización de fecha normal + indicador Demo
+            const today = new Date();
+            const dateString = today.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            dateDisplay.innerHTML = `<span style="color:#f59e0b; font-weight:600; margin-right:8px;">● Demo</span> ${dateString}`;
+        }
+    }
+
+    // --- NUEVO: Manejador de carga de archivos (ODS/Excel) ---
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            
+            // Asumimos que los datos están en la primera hoja
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Convertir a JSON
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, {raw: false, dateNF: 'yyyy-mm-dd'});
+            
+            if (jsonData && jsonData.length > 0) {
+                console.log("Datos cargados desde archivo:", jsonData);
+                processAndLoadData(jsonData, "Archivo");
+            } else {
+                alert("El archivo parece estar vacío o no es válido.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // Función centralizada para procesar datos (vengan de API o Archivo)
+    function processAndLoadData(data, sourceLabel) {
+        const dateDisplay = document.getElementById('date-display');
+        
+        // --- Sanitización y Normalización ---
+        tickets = data.map(item => {
+            // Intentar mapear nombres de columnas comunes si no coinciden exactamente
+            // Esto ayuda si el ODS tiene nombres como "Precio" en lugar de "Precio_Final"
+            const getVal = (keys) => {
+                for (let k of keys) if (item[k] !== undefined) return item[k];
+                return undefined;
+            }
+
+            return {
+                ...item,
+                Categoria: getVal(['Categoria', 'Categoría', 'categoria']) || 'Otros',
+                Articulo: getVal(['Articulo', 'Artículo', 'Nombre', 'Producto']) || 'Sin nombre',
+                Fecha: getVal(['Fecha', 'Date']) || new Date().toISOString().split('T')[0],
+                // Limpieza de moneda si viene como texto
+                Precio_Final: parseCurrency(getVal(['Precio_Final', 'Precio', 'Importe', 'Coste'])) || 0,
+                Total_Ticket: parseCurrency(getVal(['Total_Ticket', 'Total', 'Ticket'])) || 0,
+                Poblacion: getVal(['Poblacion', 'Población', 'Ciudad']) || 'Desconocida',
+                Nombre_Supermercado: getVal(['Nombre_Supermercado', 'Supermercado', 'Proveedor', 'Tienda']) || 'Varios'
+            };
+        });
+
+        // Ordenar
+        tickets.sort((a,b) => new Date(b.Fecha) - new Date(a.Fecha));
+        
+        // Actualizar estado global
+        state.filteredData = [...tickets];
+        
+        // Refrescar UI completa
+        populateSelects(); // Recargar filtros con los nuevos valores
+        resetFilters();    // Aplicar filtros por defecto (esto disparará applyFilters -> renderDashboard/Table/Charts)
+        
+        // Actualizar indicador de estado
+        const today = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        let color = sourceLabel === 'Archivo' ? '#8b5cf6' : '#10b981'; // Violeta para archivo, Verde para API
+        dateDisplay.innerHTML = `<span style="color:${color}; font-weight:600; margin-right:8px;">● ${sourceLabel}</span> ${today}`;
+    }
+
+    function parseCurrency(val) {
+        if (typeof val === 'number') return isFinite(val) ? val : 0;
+        if (typeof val === 'string') {
+            let clean = val.replace(/[€$\s]/g, '').trim(); 
+            if (clean.includes(',') && !clean.includes('.')) clean = clean.replace(',', '.');
+            const num = parseFloat(clean);
+            return isFinite(num) ? num : 0;
+        }
+        return 0;
+    }
+
+    function updateDateDisplay() {
+        // Esta función ahora solo se usa si no se ha sobreescrito por el loader, 
+        // o para actualizar la fecha base, pero el estado (Demo/Vivo) se maneja en loadDataFromN8N
+        const today = new Date();
+        const dateString = today.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        // Solo actualizamos si está vacío para no pisar el indicador de estado
+        if (!document.getElementById('date-display').innerHTML) {
+             document.getElementById('date-display').innerText = dateString;
+        }
+    }
+
+    // --- 4. LÓGICA DE FILTROS ---
+    function populateSelects() {
+        const cats = new Set(tickets.map(t => t.Categoria));
+        const cities = new Set(tickets.map(t => t.Poblacion));
+        const providers = new Set(tickets.map(t => t.Nombre_Supermercado));
+
+        // Limpiar selects antes de rellenar (importante al recargar datos)
+        const clearAndFill = (id, set) => {
+            const sel = document.getElementById(id);
+            sel.innerHTML = '<option value="">Todas</option>'; // Reset
+            Array.from(set).sort().forEach(val => {
+                if(!val) return;
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.innerText = val;
+                sel.appendChild(opt);
+            });
+        };
+
+        clearAndFill('filter-category', cats);
+        clearAndFill('filter-city', cities);
+        
+        // Provider specific handling (change "Todas" to "Todos")
+        const provSel = document.getElementById('filter-provider');
+        provSel.innerHTML = '<option value="">Todos</option>';
+        Array.from(providers).sort().forEach(val => {
+            if(!val) return;
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.innerText = val;
+            provSel.appendChild(opt);
+        });
+    }
+
+    function fillSelect(id, set) {
+        // Legacy wrapper kept for compatibility, logic moved to populateSelects
+    }
+
+    function updateFilter(key, value) {
+        state.filters[key] = value;
+        state.currentPage = 1; // Reset a página 1 al filtrar
+        assignColors(); // Reasignar colores si cambian los datos filtrados (opcional, pero seguro)
+        saveFilters();
+        applyFilters();
+    }
+
+    // Nueva función para asegurar consistencia de colores
+    function assignColors() {
+        // Obtener todas las categorías únicas de los datos. Añadimos || 'Otros' por seguridad.
+        const categories = Array.from(new Set(state.filteredData.map(t => t.Categoria || 'Otros'))).sort();
+        const palette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
+        
+        state.categoryColors = {};
+        categories.forEach((cat, i) => {
+            state.categoryColors[cat] = palette[i % palette.length];
+        });
+    }
+
+    function applyFilters() {
+        const f = state.filters;
+        const search = document.getElementById('search-input').value.toLowerCase();
+
+        state.filteredData = tickets.filter(t => {
+            const date = new Date(t.Fecha);
+            const matchesStart = !f.start || date >= new Date(f.start);
+            const matchesEnd = !f.end || date <= new Date(f.end);
+            // Uso de fallback para Categoria
+            const cat = t.Categoria || 'Otros';
+            const matchesCat = !f.category || cat === f.category;
+            const matchesCity = !f.city || t.Poblacion === f.city;
+            const matchesProv = !f.provider || t.Nombre_Supermercado === f.provider;
+            // Uso de fallback para Articulo
+            const matchesSearch = !search || (t.Articulo && t.Articulo.toLowerCase().includes(search));
+
+            return matchesStart && matchesEnd && matchesCat && matchesCity && matchesProv && matchesSearch;
+        });
+
+        // Ordenar
+        state.filteredData.sort((a, b) => {
+            let valA = a[state.sortCol];
+            let valB = b[state.sortCol];
+            
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return state.sortAsc ? -1 : 1;
+            if (valA > valB) return state.sortAsc ? 1 : -1;
+            return 0;
+        });
+
+        renderDashboard();
+        renderTable();
+        renderCharts();
+        
+        // Reset pie view to summary on filter change
+        showPieSummary();
+    }
+
+    function handleSearch() {
+        state.currentPage = 1;
+        applyFilters();
+    }
+
+    function resetFilters() {
+        state.filters = { start: '', end: '', category: '', city: '', provider: '' };
+        document.getElementById('search-input').value = '';
+        
+        // Reset DOM elements
+        ['filter-date-start', 'filter-date-end', 'filter-category', 'filter-city', 'filter-provider'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
+        
+        localStorage.removeItem('crm_filters');
+        applyFilters();
+    }
+
+    // --- 5. DASHBOARD KPI ---
+    function renderDashboard() {
+        const data = state.filteredData;
+        const total = data.reduce((sum, t) => sum + (t.Precio_Final || 0), 0);
+        const count = data.length;
+        const avg = count ? total / count : 0;
+
+        const currentMonth = new Date().getMonth(); 
+        const currentYear = new Date().getFullYear(); // Usar 2025 para coincidir con los datos
+        
+        // Para demo usamos Dic 2025 como "Mes Actual" si los datos son 2025
+        // Si hay datos reales, intentamos detectar el año/mes más reciente automáticamente
+        let targetMonth = 11; 
+        let targetYear = 2025;
+        
+        if (data.length > 0) {
+            const lastDate = new Date(data[0].Fecha); // Como está ordenado desc, el primero es el más reciente
+            if (!isNaN(lastDate)) {
+                targetMonth = lastDate.getMonth();
+                targetYear = lastDate.getFullYear();
+            }
+        }
+
+        const totalMonth = data.reduce((sum, t) => {
+            const d = new Date(t.Fecha);
+            return (d.getMonth() === targetMonth && d.getFullYear() === targetYear) ? sum + (t.Precio_Final || 0) : sum;
+        }, 0);
+
+        animateValue('kpi-total', total, '€');
+        animateValue('kpi-average', avg, '€');
+        animateValue('kpi-current-month', totalMonth, '€');
+        document.getElementById('kpi-count').innerText = count;
+    }
+
+    function animateValue(id, value, suffix) {
+        const el = document.getElementById(id);
+        el.innerText = value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + suffix;
+        // Animación simple podría ir aquí
+    }
+
+    // --- 6. TABLA Y PAGINACIÓN ---
+    function sortTable(col) {
+        if (state.sortCol === col) {
+            state.sortAsc = !state.sortAsc;
+        } else {
+            state.sortCol = col;
+            state.sortAsc = true;
+        }
+        applyFilters();
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+
+        const start = (state.currentPage - 1) * state.rowsPerPage;
+        const end = start + state.rowsPerPage;
+        const pageData = state.filteredData.slice(start, end);
+
+        pageData.forEach(t => {
+            const tr = document.createElement('tr');
+            
+            // --- CORRECCIÓN: Check defensivo de Categoria ---
+            let catClass = 'cat-otros';
+            const categoria = t.Categoria || 'Otros';
+            
+            if(categoria.includes('Alimentación')) catClass = 'cat-alimentacion';
+            if(categoria.includes('Gasolina')) catClass = 'cat-gasolina';
+            if(categoria.toLowerCase().includes('limpieza')) catClass = 'cat-limpieza'; // .toLowerCase para seguridad
+
+            tr.innerHTML = `
+                <td>${t.Fecha || '-'}</td>
+                <td style="font-weight:500">${t.Nombre_Supermercado || 'Desconocido'}</td>
+                <td>${t.Poblacion || '-'}</td>
+                <td>${t.Articulo || '-'}</td>
+                <td><span class="badge ${catClass}">${categoria}</span></td>
+                <td style="text-align:right">${(t.Precio_Final || 0).toFixed(2)} €</td>
+                <td style="text-align:right; opacity:0.7">${(t.Total_Ticket || 0).toFixed(2)} €</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const container = document.getElementById('pagination-controls');
+        container.innerHTML = '';
+        
+        const totalPages = Math.ceil(state.filteredData.length / state.rowsPerPage);
+        
+        if (totalPages <= 1) return;
+
+        const createBtn = (text, page, active=false, disabled=false) => {
+            const btn = document.createElement('button');
+            btn.className = `page-btn ${active ? 'active' : ''}`;
+            btn.innerText = text;
+            btn.disabled = disabled;
+            btn.onclick = () => { state.currentPage = page; renderTable(); };
+            container.appendChild(btn);
+        };
+
+        createBtn('<<', 1, false, state.currentPage === 1);
+        createBtn('<', state.currentPage - 1, false, state.currentPage === 1);
+
+        // Lógica simple de páginas visibles (muestra rango alrededor de actual)
+        let startPage = Math.max(1, state.currentPage - 1);
+        let endPage = Math.min(totalPages, startPage + 2);
+        
+        if (endPage - startPage < 2) startPage = Math.max(1, endPage - 2);
+
+        for (let i = startPage; i <= endPage; i++) {
+            createBtn(i, i, i === state.currentPage);
+        }
+
+        createBtn('>', state.currentPage + 1, false, state.currentPage === totalPages);
+        createBtn('>>', totalPages, false, state.currentPage === totalPages);
+    }
+
+    // --- 7. GRÁFICOS (CANVAS API) ---
+    function renderCharts() {
+        const data = state.filteredData;
+        
+        // Preparar Datos (con fallbacks)
+        const byCat = aggregate(data, 'Categoria', 'Precio_Final');
+        const byCity = aggregate(data, 'Poblacion', 'Precio_Final');
+        
+        // Por Mes (YYYY-MM)
+        const byMonthRaw = data.reduce((acc, curr) => {
+            const key = (curr.Fecha || '').substring(0, 7); // YYYY-MM
+            if(key.length === 7) {
+                acc[key] = (acc[key] || 0) + (curr.Precio_Final || 0);
+            }
+            return acc;
+        }, {});
+        // Ordenar cronológicamente
+        const byMonth = Object.keys(byMonthRaw).sort().reduce((obj, key) => {
+            obj[key] = byMonthRaw[key];
+            return obj;
+        }, {});
+
+        // --- LÓGICA NUEVA PARA BARRAS COMPARATIVAS ---
+        
+        // 1. Detección automática del mes "Actual" y "Anterior" basada en los datos cargados
+        let currentMonth, currentYear, prevMonth, prevYear;
+
+        if (data.length > 0) {
+            const lastDate = new Date(data[0].Fecha); // Asumimos orden descendente
+            currentMonth = lastDate.getMonth();
+            currentYear = lastDate.getFullYear();
+            
+            // Calcular mes anterior
+            const d = new Date(lastDate);
+            d.setMonth(d.getMonth() - 1);
+            prevMonth = d.getMonth();
+            prevYear = d.getFullYear();
+        } else {
+            // Fallback por si no hay datos
+            const d = new Date();
+            currentMonth = d.getMonth();
+            currentYear = d.getFullYear();
+            d.setMonth(d.getMonth() - 1);
+            prevMonth = d.getMonth();
+            prevYear = d.getFullYear();
+        }
+
+        // 2. Filtrar datos por mes
+        const currentMonthData = data.filter(t => {
+            const d = new Date(t.Fecha);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        });
+        const prevMonthData = data.filter(t => {
+            const d = new Date(t.Fecha);
+            return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+        });
+
+        // 3. Agrupar y Ordenar Alfabéticamente
+        function getAlphabeticalAgg(dataset) {
+            const agg = aggregate(dataset, 'Categoria', 'Precio_Final');
+            return Object.keys(agg).sort().reduce((obj, key) => {
+                obj[key] = agg[key];
+                return obj;
+            }, {});
+        }
+
+        const byCatCurrent = getAlphabeticalAgg(currentMonthData);
+        const byCatPrev = getAlphabeticalAgg(prevMonthData);
+
+        // 4. Dibujar
+        drawBarChart('canvas-cat-current', byCatCurrent, state.categoryColors);
+        drawBarChart('canvas-cat-prev', byCatPrev, state.categoryColors);
+
+        // Otros gráficos
+        drawBarChart('canvas-month', byMonth, '#10b981');
+        drawBarChart('canvas-city', byCity, '#8b5cf6');
+        drawPieChart('canvas-pie', byCat);
+    }
+
+    function aggregate(data, keyField, valField) {
+        return data.reduce((acc, curr) => {
+            const key = curr[keyField] || 'Otros';
+            acc[key] = (acc[key] || 0) + (curr[valField] || 0);
+            return acc;
+        }, {});
+    }
+
+    // Motor de Renderizado de Canvas Reutilizable (Modificado para soportar mapa de colores)
+    function drawBarChart(canvasId, dataObj, colorConfig) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return; // Protección si el canvas no existe en el DOM
+        const ctx = canvas.getContext('2d');
+        const labels = Object.keys(dataObj);
+        const values = Object.values(dataObj);
+        
+        // Setup resolution
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        
+        const width = rect.width;
+        const height = rect.height;
+        const padding = { top: 20, right: 10, bottom: 60, left: 40 }; // Adjusted padding for smaller charts
+        
+        // Clear
+        ctx.clearRect(0, 0, width, height);
+        
+        if(values.length === 0) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.textAlign = 'center';
+            ctx.font = '12px sans-serif';
+            ctx.fillText("Sin datos", width/2, height/2);
+            return;
+        }
+
+        let maxValue = Math.max(...values) * 1.1; // 10% margen
+        if (!isFinite(maxValue) || maxValue === 0) maxValue = 1; // Prevent NaN/Infinity
+
+        const barWidth = (width - padding.left - padding.right) / values.length;
+        const gap = Math.min(10, barWidth * 0.2);
+        const actualBarWidth = barWidth - gap;
+
+        // Ejes
+        ctx.beginPath();
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.moveTo(padding.left, padding.top);
+        ctx.lineTo(padding.left, height - padding.bottom);
+        ctx.lineTo(width - padding.right, height - padding.bottom);
+        ctx.stroke();
+
+        // Barras
+        const bars = []; // Store coordinates for tooltip
+
+        values.forEach((val, i) => {
+            let safeVal = isFinite(val) ? val : 0;
+            const barHeight = (safeVal / maxValue) * (height - padding.top - padding.bottom);
+            const x = padding.left + (i * barWidth) + (gap / 2);
+            const y = height - padding.bottom - barHeight;
+            
+            // Determinar color: Si colorConfig es string, úsalo. Si es objeto, busca por label.
+            let baseColor = typeof colorConfig === 'string' ? colorConfig : (colorConfig[labels[i]] || '#ccc');
+
+            // Check coordinates before drawing
+            if (!isFinite(x) || !isFinite(y) || !isFinite(barHeight)) return;
+
+            // Gradiente
+            const grad = ctx.createLinearGradient(x, y, x, y + barHeight);
+            grad.addColorStop(0, baseColor);
+            grad.addColorStop(1, adjustColor(baseColor, -30)); // Darken slightly
+
+            ctx.fillStyle = grad;
+            
+            // Animación "simple"
+            ctx.fillRect(x, y, actualBarWidth, barHeight);
+
+            // Labels Eje X (Truncados y rotados si es necesario)
+            ctx.save();
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            
+            let label = labels[i];
+            // Lógica simple para evitar solapamiento en gráficos pequeños
+            if(label.length > 6) label = label.substring(0,5) + '.';
+            
+            ctx.fillText(label, x + actualBarWidth/2, height - padding.bottom + 14);
+            ctx.restore();
+
+            bars.push({ x, y, w: actualBarWidth, h: barHeight, val: val, label: labels[i] });
+        });
+
+        // Eje Y Labels (Simplificado)
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '9px sans-serif';
+        const steps = 4;
+        for(let i=0; i<=steps; i++) {
+            const val = (maxValue / steps) * i;
+            const y = height - padding.bottom - ((val / maxValue) * (height - padding.top - padding.bottom));
+            if (i > 0) { // Skip 0 to render cleaner
+                // Grid horizontal
+                ctx.beginPath();
+                ctx.strokeStyle = '#f1f5f9';
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(width - padding.right, y);
+                ctx.stroke();
+            }
+            ctx.fillText(Math.round(val), padding.left - 4, y + 3);
+        }
+
+        // Event Listener para Tooltips
+        canvas.onmousemove = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            let found = false;
+            const tooltip = document.getElementById('chart-tooltip');
+
+            bars.forEach(bar => {
+                // MODIFICADO: Ahora detecta si el ratón está en la columna vertical completa de la barra
+                // Usamos padding.top y height-padding.bottom para definir el área vertical válida del gráfico
+                if (mouseX >= bar.x && mouseX <= bar.x + bar.w &&
+                    mouseY >= padding.top && mouseY <= height - padding.bottom) {
+                    
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.pageX) + 'px';
+                    tooltip.style.top = (e.pageY) + 'px';
+                    tooltip.innerHTML = `<strong>${bar.label}</strong><br>${bar.val.toFixed(2)} €`;
+                    found = true;
+                    canvas.style.cursor = 'pointer';
+                }
+            });
+
+            if(!found) {
+                tooltip.style.display = 'none';
+                canvas.style.cursor = 'default';
+            }
+        };
+        
+        canvas.onmouseleave = () => {
+             document.getElementById('chart-tooltip').style.display = 'none';
+        };
+    }
+
+    // Nuevo Motor para Gráfico Circular (Pie Chart) con Click Event
+    function drawPieChart(canvasId, dataObj) {
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        const labels = Object.keys(dataObj);
+        const values = Object.values(dataObj);
+        const total = values.reduce((a, b) => a + b, 0);
+
+        // Setup resolution
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+
+        const width = rect.width;
+        const height = rect.height;
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = Math.min(width, height) / 2 - 20;
+
+        ctx.clearRect(0, 0, width, height);
+
+        if(values.length === 0) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.textAlign = 'center';
+            ctx.fillText("Sin datos", centerX, centerY);
+            return;
+        }
+
+        let startAngle = 0;
+        const slices = [];
+        
+        // Usamos los colores ya asignados en state.categoryColors
+        
+        values.forEach((val, i) => {
+            const sliceAngle = (val / total) * 2 * Math.PI;
+            const endAngle = startAngle + sliceAngle;
+            
+            // Color consistente
+            const color = state.categoryColors[labels[i]] || '#ccc';
+
+            // Draw slice
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+            ctx.closePath();
+            
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Border to separate slices
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            // Save for interactions
+            slices.push({
+                start: startAngle,
+                end: endAngle,
+                val: val,
+                label: labels[i],
+                color: color
+            });
+
+            startAngle = endAngle;
+        });
+
+        const tooltip = document.getElementById('chart-tooltip');
+
+        // Helper to get slice from mouse event
+        const getSlice = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const dx = mouseX - centerX;
+            const dy = mouseY - centerY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            if (dist > radius) return null;
+
+            let angle = Math.atan2(dy, dx);
+            if (angle < 0) angle += 2 * Math.PI;
+
+            return slices.find(s => angle >= s.start && angle < s.end);
+        };
+        
+        // Mouse Move for Tooltip
+        canvas.onmousemove = (e) => {
+            const slice = getSlice(e);
+            
+            if (slice) {
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.pageX) + 'px';
+                tooltip.style.top = (e.pageY) + 'px';
+                const percent = ((slice.val / total) * 100).toFixed(1);
+                tooltip.innerHTML = `<strong style="color:${slice.color}">${slice.label}</strong><br>${slice.val.toFixed(2)} €<br>${percent}%`;
+                canvas.style.cursor = 'pointer';
+            } else {
+                 tooltip.style.display = 'none';
+                 canvas.style.cursor = 'default';
+            }
+        };
+
+        canvas.onmouseleave = () => {
+             tooltip.style.display = 'none';
+        };
+
+        // Click Handler for Details
+        canvas.onclick = (e) => {
+            const slice = getSlice(e);
+            if (slice) {
+                showPieEntries(slice.label, slice.color);
+            }
+        };
+
+        // Renderizar la leyenda por defecto
+        renderPieLegend(dataObj, total);
+    }
+
+    // Renderiza la tabla de leyenda (Desglose de Categorías)
+    function renderPieLegend(dataObj, total) {
+        const tbody = document.getElementById('pie-summary-body');
+        tbody.innerHTML = '';
+        
+        // Convert to array and sort by value desc
+        const sorted = Object.entries(dataObj).sort((a,b) => b[1] - a[1]);
+
+        sorted.forEach(([cat, val]) => {
+            const percent = ((val / total) * 100).toFixed(1);
+            const color = state.categoryColors[cat] || '#ccc';
+            
+            const tr = document.createElement('tr');
+            tr.className = 'clickable';
+            tr.onclick = () => showPieEntries(cat, color);
+            tr.innerHTML = `
+                <td>
+                    <span class="legend-color-dot" style="background-color:${color}"></span>
+                    ${cat}
+                </td>
+                <td class="text-right">${percent}%</td>
+                <td class="text-right" style="font-weight:600">${val.toFixed(2)} €</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Muestra la vista de Resumen (Default)
+    function showPieSummary() {
+        document.getElementById('pie-entries-view').style.display = 'none';
+        document.getElementById('pie-summary-view').style.display = 'flex';
+    }
+
+    // Muestra la vista de Entradas (On Click)
+    function showPieEntries(category, color) {
+        // Switch Views
+        document.getElementById('pie-summary-view').style.display = 'none';
+        const entriesView = document.getElementById('pie-entries-view');
+        entriesView.style.display = 'flex';
+
+        // Update Header
+        const title = document.getElementById('entries-title');
+        title.innerText = category;
+        title.style.color = color;
+
+        // Filter Data
+        const details = state.filteredData
+            .filter(t => t.Categoria === category)
+            .sort((a, b) => b.Precio_Final - a.Precio_Final);
+
+        const tbody = document.getElementById('pie-entries-body');
+        tbody.innerHTML = '';
+        
+        if (details.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:1rem">No hay registros</td></tr>';
+            return;
+        }
+
+        details.slice(0, 50).forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>
+                    <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px">${item.Articulo}</div>
+                    <div style="font-size:0.75rem; color:#64748b">${item.Fecha}</div>
+                </td>
+                <td class="text-right" style="font-weight:600; color:${color}">${item.Precio_Final.toFixed(2)} €</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Helper Color Darken
+    function adjustColor(color, amount) {
+        return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+    }
+
+    // --- 8. PERSISTENCIA Y EXPORTACIÓN ---
+    function saveFilters() {
+        localStorage.setItem('crm_filters', JSON.stringify(state.filters));
+    }
+
+    function loadFilters() {
+        const saved = localStorage.getItem('crm_filters');
+        if (saved) {
+            state.filters = JSON.parse(saved);
+            document.getElementById('filter-date-start').value = state.filters.start;
+            document.getElementById('filter-date-end').value = state.filters.end;
+        }
+    }
+
+    function exportToCSV() {
+        const data = state.filteredData;
+        if (!data.length) return alert("No hay datos para exportar");
+
+        const headers = Object.keys(data[0]);
+        const csvContent = [
+            headers.join(','), // Header row
+            ...data.map(row => headers.map(fieldName => {
+                let val = row[fieldName];
+                if (typeof val === 'string') val = `"${val}"`; // Escape strings
+                return val;
+            }).join(','))
+        ].join('\r\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `tickets_export_${new Date().toISOString().slice(0,10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>
