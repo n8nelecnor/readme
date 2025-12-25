@@ -165,7 +165,7 @@
 
         <div class="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
             
-            <!-- KPI Cards -->
+            <!-- KPI Cards MODIFICADOS -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
                 <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition">
                     <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-blue-600"><i class="fas fa-euro-sign fa-2x md:fa-3x"></i></div>
@@ -175,15 +175,15 @@
                 </div>
                 
                 <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
-                    <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-purple-600"><i class="fas fa-shopping-cart fa-2x md:fa-3x"></i></div>
-                    <p class="text-gray-500 text-xs md:text-sm font-medium">Total Tickets</p>
-                    <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1" id="kpi-count">0</h3>
+                    <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-purple-600"><i class="fas fa-calendar-check fa-2x md:fa-3x"></i></div>
+                    <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Actual</p>
+                    <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1" id="kpi-month-current">0.00 €</h3>
                 </div>
 
                 <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
-                    <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-orange-600"><i class="fas fa-chart-pie fa-2x md:fa-3x"></i></div>
-                    <p class="text-gray-500 text-xs md:text-sm font-medium">Ticket Medio</p>
-                    <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-average">0.00 €</h3>
+                    <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-orange-600"><i class="fas fa-history fa-2x md:fa-3x"></i></div>
+                    <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Anterior</p>
+                    <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-month-prev">0.00 €</h3>
                 </div>
 
                 <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
@@ -475,16 +475,54 @@
         function nextPage() { if((currentPage * rowsPerPage) < filteredData.length) { currentPage++; renderTable(); } }
 
         function updateDashboard() {
+            // Gasto Total (Respeta todos los filtros, incluidas fechas)
             const total = filteredData.reduce((acc, curr) => acc + curr.Total, 0);
-            const count = filteredData.length;
-            const avg = count > 0 ? total / count : 0;
             
-            document.getElementById('kpi-total').innerText = total.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
-            document.getElementById('kpi-count').innerText = count;
-            document.getElementById('kpi-average').innerText = avg.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+            // --- CÁLCULO GASTOS MENSUALES (Respeta filtros dropdown, IGNORA fechas) ---
+            const vendorFilter = document.getElementById('filter-supermarket').value;
+            const catFilter = document.getElementById('filter-category').value;
+            const userFilter = document.getElementById('filter-user').value;
 
-            if (count > 0) {
-                const last = filteredData.reduce((prev, current) => (prev.Fecha > current.Fecha) ? prev : current);
+            // Datos base filtrados solo por dropdowns (sin rango de fecha)
+            const contextualData = allData.filter(item => {
+                const matchVendor = !vendorFilter || item.Supermercado === vendorFilter;
+                const matchCat = !catFilter || item.Categoria === catFilter;
+                const matchUser = !userFilter || item.Usuario === userFilter;
+                return matchVendor && matchCat && matchUser;
+            });
+
+            // Definir mes actual y anterior
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            const prevDate = new Date();
+            prevDate.setMonth(prevDate.getMonth() - 1);
+            const prevMonth = prevDate.getMonth();
+            const prevYear = prevDate.getFullYear();
+
+            const currentMonthTotal = contextualData.reduce((acc, curr) => {
+                const d = new Date(curr.Fecha);
+                if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) return acc + curr.Total;
+                return acc;
+            }, 0);
+
+            const prevMonthTotal = contextualData.reduce((acc, curr) => {
+                const d = new Date(curr.Fecha);
+                if (d.getMonth() === prevMonth && d.getFullYear() === prevYear) return acc + curr.Total;
+                return acc;
+            }, 0);
+
+            // Actualizar DOM
+            document.getElementById('kpi-total').innerText = total.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+            document.getElementById('kpi-month-current').innerText = currentMonthTotal.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+            document.getElementById('kpi-month-prev').innerText = prevMonthTotal.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+
+            if (filteredData.length > 0) {
+                // Encontrar la fecha más reciente en los datos filtrados
+                // Ordenar temp para obtener max fecha
+                const sorted = [...filteredData].sort((a,b) => new Date(b.Fecha) - new Date(a.Fecha));
+                const last = sorted[0];
                 document.getElementById('kpi-last-date').innerText = new Date(last.Fecha).toLocaleDateString('es-ES');
                 document.getElementById('kpi-last-vendor').innerText = last.Supermercado;
             } else {
