@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CRM Gestión de Tickets</title>
+    <title>CRM Gestión de Tickets - Acceso Seguro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -15,366 +15,589 @@
         }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f3f4f6; }
         
-        /* Efectos de carga */
         .loading-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255,255,255,0.9); z-index: 60; display: flex;
             justify-content: center; align-items: center; flex-direction: column;
         }
         
-        /* Personalización de tabla */
         .table-row-hover:hover { background-color: #f8fafc; }
         th { cursor: pointer; user-select: none; }
         th:hover { color: var(--primary); }
 
-        /* Scrollbar personalizada para el sidebar */
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        /* Estilos para inputs de fecha en modo oscuro */
         input[type="date"]::-webkit-calendar-picker-indicator {
             filter: invert(1);
             cursor: pointer;
         }
+
+        /* Estilos Login */
+        .login-bg {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+
+        /* Animación Chat */
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .chat-anim { animation: fadeInScale 0.2s ease-out forwards; }
+        
+        /* Mensajes Chat */
+        .msg-user { background-color: #2563eb; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .msg-bot { background-color: #f1f5f9; color: #1e293b; align-self: flex-start; border-bottom-left-radius: 2px; line-height: 1.5; }
+        .msg-system { background-color: #fee2e2; color: #991b1b; align-self: center; font-size: 0.75rem; width: 90%; text-align: center; border: 1px solid #fecaca; }
     </style>
 </head>
-<body class="flex h-screen overflow-hidden relative">
+<body class="bg-gray-100 h-screen overflow-hidden">
 
-    <div id="loader" class="loading-overlay">
-        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mb-4"></div>
-        <p class="text-gray-600 font-semibold" id="loader-text">Conectando con n8n...</p>
+    <!-- PANTALLA DE LOGIN -->
+    <div id="login-screen" class="fixed inset-0 z-[100] flex items-center justify-center login-bg transition-opacity duration-500">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">Acceso Seguro</h2>
+                <p class="text-sm text-gray-500 mt-2">Introduce tus credenciales para acceder al CRM</p>
+            </div>
+            
+            <form onsubmit="handleLogin(event)" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <input type="text" id="login-user" class="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="admin" required>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <input type="password" id="login-pass" class="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="••••" required>
+                    </div>
+                </div>
+
+                <div id="login-error" class="text-red-500 text-sm text-center hidden bg-red-50 p-2 rounded border border-red-100">
+                    <i class="fas fa-exclamation-circle mr-1"></i> Credenciales incorrectas
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition transform hover:scale-[1.02] shadow-lg">
+                    Entrar <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center text-xs text-gray-400">
+                <p>Usuarios Demo: <b>admin/1234</b> o <b>demo/demo</b></p>
+            </div>
+        </div>
     </div>
 
-    <!-- OVERLAY MENU MOVIL (IZQUIERDA) -->
-    <div id="mobile-menu-overlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden transition-opacity duration-300 opacity-0 md:hidden"></div>
-
-    <!-- OVERLAY DETALLES (DERECHA) -->
-    <div id="details-overlay" onclick="closeSidebar()" class="fixed inset-0 bg-black bg-opacity-30 z-40 hidden transition-opacity duration-300 opacity-0"></div>
-    
-    <!-- SIDEBAR DE DETALLES (DERECHA) -->
-    <div id="details-sidebar" class="fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col">
-        <div class="p-4 bg-blue-600 text-white flex justify-between items-center shadow-md shrink-0">
-            <div>
-                <h3 class="font-bold text-lg" id="sidebar-title">Detalles</h3>
-                <p class="text-xs text-blue-200" id="sidebar-subtitle">Últimos 30 días</p>
-            </div>
-            <button onclick="closeSidebar()" class="hover:bg-blue-700 p-2 rounded-full transition-colors w-8 h-8 flex items-center justify-center">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="p-3 bg-blue-50 border-b border-blue-100 shrink-0 flex justify-between items-center">
-            <span class="text-xs font-semibold text-blue-800 uppercase tracking-wide">Tickets Recientes</span>
-            <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full" id="sidebar-count">0 tickets</span>
-        </div>
-        <div class="flex-1 overflow-y-auto p-4 custom-scroll space-y-3" id="sidebar-content">
-            <!-- Los items se inyectan aquí -->
-        </div>
-        <div class="p-4 border-t border-gray-100 bg-gray-50 shrink-0 text-center">
-            <p class="text-xs text-gray-400">Mostrando datos filtrados por el último mes de actividad</p>
-        </div>
-    </div>
-
-    <!-- SIDEBAR PRINCIPAL (IZQUIERDA) - AHORA RESPONSIVE -->
-    <aside id="main-sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 text-white flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 md:relative md:z-0 shadow-xl md:shadow-none">
-        <div class="p-6 border-b border-slate-700 flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-bold text-blue-400"><i class="fas fa-receipt mr-2"></i>TicketCRM</h1>
-                <p class="text-xs text-slate-400 mt-1">Gestión de Gastos</p>
-            </div>
-            <!-- Botón cerrar solo visible en móvil -->
-            <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-white p-2">
-                <i class="fas fa-times fa-lg"></i>
-            </button>
-        </div>
-        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
-            <a href="#" class="flex items-center p-3 bg-blue-600 rounded-lg text-white shadow-lg" onclick="toggleMobileMenu()">
-                <i class="fas fa-chart-line w-6 text-center"></i> <span class="ml-2">Dashboard</span>
-            </a>
-            <div class="mt-8">
-                <p class="text-xs uppercase text-slate-500 font-bold mb-3 px-3">Filtros Rápidos</p>
-                <div class="px-3 space-y-3">
+    <!-- MODAL COMPARADOR DE PRECIOS -->
+    <div id="comparator-modal" class="fixed inset-0 z-[70] hidden">
+        <div class="absolute inset-0 bg-black bg-opacity-50 transition-opacity" onclick="closeComparator()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col pointer-events-auto transform transition-all scale-100">
+                <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
                     <div>
-                        <label class="text-xs text-slate-400">Supermercado</label>
-                        <select id="filter-supermarket" class="w-full bg-slate-700 text-sm rounded p-2 mt-1 border border-slate-600 focus:border-blue-500 outline-none" onchange="applyFilters(); toggleMobileMenu()">
-                            <option value="">Todos</option>
-                        </select>
+                        <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-tags text-blue-600 mr-2"></i>Comparador de Precios</h3>
+                        <p class="text-sm text-gray-500">Compara el precio unitario entre supermercados (Últimos 30 días)</p>
                     </div>
-                    <div>
-                        <label class="text-xs text-slate-400">Categoría</label>
-                        <select id="filter-category" class="w-full bg-slate-700 text-sm rounded p-2 mt-1 border border-slate-600 focus:border-blue-500 outline-none" onchange="applyFilters(); toggleMobileMenu()">
-                            <option value="">Todas</option>
-                        </select>
-                    </div>
-                    <!-- FILTRO DE USUARIO AÑADIDO AQUÍ -->
-                    <div>
-                        <label class="text-xs text-slate-400">Usuario</label>
-                        <select id="filter-user" class="w-full bg-slate-700 text-sm rounded p-2 mt-1 border border-slate-600 focus:border-blue-500 outline-none" onchange="applyFilters(); toggleMobileMenu()">
-                            <option value="">Todos</option>
-                        </select>
-                    </div>
-
-                    <!-- FILTRO DE FECHAS -->
-                    <div class="pt-2 border-t border-slate-700 mt-2">
-                        <label class="text-xs text-slate-400 block mb-1">Rango de Fechas</label>
-                        <div class="space-y-2">
-                            <div>
-                                <label class="text-[10px] text-slate-500 uppercase">Desde</label>
-                                <input type="date" id="filter-date-start" class="w-full bg-slate-700 text-sm rounded p-2 border border-slate-600 focus:border-blue-500 outline-none text-slate-200" onchange="applyFilters()">
-                            </div>
-                            <div>
-                                <label class="text-[10px] text-slate-500 uppercase">Hasta</label>
-                                <input type="date" id="filter-date-end" class="w-full bg-slate-700 text-sm rounded p-2 border border-slate-600 focus:border-blue-500 outline-none text-slate-200" onchange="applyFilters()">
-                            </div>
+                    <button onclick="closeComparator()" class="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-200 transition">
+                        <i class="fas fa-times fa-lg"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6 flex-1 flex flex-col overflow-hidden">
+                    <div class="relative mb-6">
+                        <input type="text" id="comparator-search" placeholder="Escribe un producto (ej: Tomate, Leche...)" 
+                               class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-lg shadow-sm"
+                               onkeyup="handleComparatorSearch(event)">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+                            <i class="fas fa-search fa-lg"></i>
                         </div>
                     </div>
 
-                    <button onclick="resetFilters(); toggleMobileMenu()" class="w-full py-2 text-xs border border-slate-600 rounded hover:bg-slate-700 mt-2 transition-colors">
-                        Limpiar Filtros
+                    <div id="comparator-results" class="flex-1 flex flex-col overflow-hidden hidden">
+                        <div class="h-64 mb-6 relative">
+                            <canvas id="comparatorChart"></canvas>
+                        </div>
+                        <div class="flex-1 overflow-y-auto custom-scroll border-t border-gray-100 pt-4">
+                            <table class="w-full text-sm text-left text-gray-600">
+                                <thead class="text-xs text-gray-500 uppercase bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-4 py-2">Supermercado</th>
+                                        <th class="px-4 py-2 text-right">Precio Medio</th>
+                                        <th class="px-4 py-2 text-right">Último Precio</th>
+                                        <th class="px-4 py-2 text-right">Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comparator-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div id="comparator-empty" class="flex-1 flex flex-col items-center justify-center text-gray-400">
+                        <i class="fas fa-basket-shopping fa-4x mb-4 text-gray-200"></i>
+                        <p>Busca un producto para comparar precios</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENIDO DE LA APP -->
+    <div id="app-content" class="hidden h-screen flex overflow-hidden relative opacity-0 transition-opacity duration-700">
+
+        <div id="loader" class="loading-overlay">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mb-4"></div>
+            <p class="text-gray-600 font-semibold" id="loader-text">Conectando con n8n...</p>
+        </div>
+
+        <!-- WIDGET CHATBOT -->
+        <div id="chat-widget" class="fixed bottom-6 right-6 z-[80] flex flex-col items-end">
+            
+            <!-- Ventana de Chat (Oculta por defecto) -->
+            <div id="chat-window" class="bg-white w-80 h-96 rounded-2xl shadow-2xl mb-4 border border-gray-200 hidden flex flex-col overflow-hidden chat-anim">
+                <!-- Header Chat -->
+                <div class="bg-blue-600 p-4 text-white flex justify-between items-center shrink-0">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-2">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-sm">Asistente Virtual</h4>
+                            <div class="flex items-center text-xs text-blue-200">
+                                <span class="w-2 h-2 bg-green-400 rounded-full mr-1"></span> Online
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="toggleChat()" class="text-blue-200 hover:text-white transition">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- Area Mensajes -->
+                <div id="chat-messages" class="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-3 custom-scroll flex flex-col">
+                    <div class="msg-bot p-3 rounded-2xl rounded-tl-none text-sm max-w-[85%] shadow-sm">
+                        ¡Hola! Soy tu asistente financiero. ¿En qué puedo ayudarte hoy con tus gastos?
+                    </div>
+                </div>
+
+                <!-- Input Chat -->
+                <div class="p-3 border-t border-gray-100 bg-white flex items-center gap-2">
+                    <input type="text" id="chat-input" placeholder="Escribe un mensaje..." 
+                           class="flex-1 bg-gray-100 border-0 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                           onkeypress="handleChatEnter(event)">
+                    <button onclick="sendChatMessage()" class="w-9 h-9 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition flex items-center justify-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed" id="chat-send-btn">
+                        <i class="fas fa-paper-plane text-xs"></i>
                     </button>
                 </div>
             </div>
-        </nav>
-        <div class="p-4 border-t border-slate-700 text-xs text-center text-slate-500">
-            Conectado a Webhook n8n
-        </div>
-    </aside>
 
-    <main class="flex-1 flex flex-col h-full overflow-hidden w-full">
-        <header class="bg-white shadow-sm p-4 flex justify-between items-center z-10 shrink-0">
-            <div class="flex items-center text-gray-800">
-                <!-- Botón hamburguesa con cursor pointer explícito -->
-                <button onclick="toggleMobileMenu()" class="md:hidden mr-4 text-gray-600 hover:text-blue-600 focus:outline-none cursor-pointer p-2 rounded-md hover:bg-gray-100 transition-colors">
-                    <i class="fas fa-bars fa-lg"></i>
-                </button>
-                <h2 class="text-xl font-semibold truncate">Resumen General</h2>
-            </div>
-            <div class="flex items-center gap-2 md:gap-4">
-                <div id="connection-status" class="hidden md:flex text-xs font-bold px-3 py-1 rounded-full bg-green-100 text-green-700 items-center">
-                    <div class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div> Online
+            <!-- Botón Flotante -->
+            <button onclick="toggleChat()" id="chat-fab" class="w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition transform hover:scale-110 flex items-center justify-center">
+                <i class="fas fa-comment-dots fa-lg"></i>
+            </button>
+        </div>
+
+        <div id="mobile-menu-overlay" onclick="toggleMobileMenu()" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden transition-opacity duration-300 opacity-0 md:hidden"></div>
+        <div id="details-overlay" onclick="closeSidebar()" class="fixed inset-0 bg-black bg-opacity-30 z-40 hidden transition-opacity duration-300 opacity-0"></div>
+        
+        <div id="details-sidebar" class="fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col">
+            <div class="p-4 bg-blue-600 text-white flex justify-between items-center shadow-md shrink-0">
+                <div>
+                    <h3 class="font-bold text-lg" id="sidebar-title">Detalles</h3>
+                    <p class="text-xs text-blue-200" id="sidebar-subtitle">Últimos 30 días</p>
                 </div>
-                <!-- Versión móvil del estado -->
-                <div class="md:hidden w-3 h-3 bg-green-500 rounded-full animate-pulse" title="Online"></div>
-                
-                <button onclick="fetchData()" class="text-gray-500 hover:text-blue-600 p-2" title="Recargar datos">
-                    <i class="fas fa-sync-alt"></i>
+                <button onclick="closeSidebar()" class="hover:bg-blue-700 p-2 rounded-full transition-colors w-8 h-8 flex items-center justify-center">
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
-        </header>
+            <div class="p-3 bg-blue-50 border-b border-blue-100 shrink-0 flex justify-between items-center">
+                <span class="text-xs font-semibold text-blue-800 uppercase tracking-wide">Tickets Recientes</span>
+                <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full" id="sidebar-count">0 tickets</span>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 custom-scroll space-y-3" id="sidebar-content"></div>
+            <div class="p-4 border-t border-gray-100 bg-gray-50 shrink-0 text-center">
+                <p class="text-xs text-gray-400">Mostrando datos filtrados por el último mes de actividad</p>
+            </div>
+        </div>
 
-        <div class="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
-            
-            <!-- KPI Cards MODIFICADOS -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
-                <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition">
-                    <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-blue-600"><i class="fas fa-euro-sign fa-2x md:fa-3x"></i></div>
-                    <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Total</p>
-                    <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-total">0.00 €</h3>
-                    <p class="text-[10px] md:text-xs text-green-500 mt-1 md:mt-2 font-semibold"><i class="fas fa-arrow-up"></i> Acumulado</p>
+        <aside id="main-sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 text-white flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0 md:relative md:z-0 shadow-xl md:shadow-none">
+            <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-blue-400"><i class="fas fa-receipt mr-2"></i>TicketCRM</h1>
+                    <p class="text-xs text-slate-400 mt-1">Gestión de Gastos</p>
+                </div>
+                <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-white p-2">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+            </div>
+            <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+                <a href="#" class="flex items-center p-3 bg-blue-600 rounded-lg text-white shadow-lg" onclick="toggleMobileMenu()">
+                    <i class="fas fa-chart-line w-6 text-center"></i> <span class="ml-2">Dashboard</span>
+                </a>
+                
+                <a href="#" onclick="openComparator(); toggleMobileMenu()" class="flex items-center p-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
+                    <i class="fas fa-tags w-6 text-center"></i> <span class="ml-2">Comparador</span>
+                </a>
+
+                <div class="mt-8">
+                    <p class="text-xs uppercase text-slate-500 font-bold mb-3 px-3">Filtros Rápidos</p>
+                    <div class="px-3 space-y-3">
+                        <div>
+                            <label class="text-xs text-slate-400">Supermercado</label>
+                            <select id="filter-supermarket" class="w-full bg-slate-700 text-sm rounded p-2 mt-1 border border-slate-600 focus:border-blue-500 outline-none" onchange="applyFilters(); toggleMobileMenu()">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400">Categoría</label>
+                            <select id="filter-category" class="w-full bg-slate-700 text-sm rounded p-2 mt-1 border border-slate-600 focus:border-blue-500 outline-none" onchange="applyFilters(); toggleMobileMenu()">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400">Usuario</label>
+                            <select id="filter-user" class="w-full bg-slate-700 text-sm rounded p-2 mt-1 border border-slate-600 focus:border-blue-500 outline-none" onchange="applyFilters(); toggleMobileMenu()">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="pt-2 border-t border-slate-700 mt-2">
+                            <label class="text-xs text-slate-400 block mb-1">Rango de Fechas</label>
+                            <div class="space-y-2">
+                                <div>
+                                    <label class="text-[10px] text-slate-500 uppercase">Desde</label>
+                                    <input type="date" id="filter-date-start" class="w-full bg-slate-700 text-sm rounded p-2 border border-slate-600 focus:border-blue-500 outline-none text-slate-200" onchange="applyFilters()">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-slate-500 uppercase">Hasta</label>
+                                    <input type="date" id="filter-date-end" class="w-full bg-slate-700 text-sm rounded p-2 border border-slate-600 focus:border-blue-500 outline-none text-slate-200" onchange="applyFilters()">
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="resetFilters(); toggleMobileMenu()" class="w-full py-2 text-xs border border-slate-600 rounded hover:bg-slate-700 mt-2 transition-colors">
+                            Limpiar Filtros
+                        </button>
+                    </div>
+                </div>
+            </nav>
+            <div class="p-4 border-t border-slate-700 flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-bold text-white mr-2">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-white" id="current-user-display">Usuario</p>
+                        <p class="text-[10px] text-green-400">Conectado</p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="text-slate-400 hover:text-red-400" title="Cerrar Sesión">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-full overflow-hidden w-full">
+            <header class="bg-white shadow-sm p-4 flex justify-between items-center z-10 shrink-0">
+                <div class="flex items-center text-gray-800">
+                    <button onclick="toggleMobileMenu()" class="md:hidden mr-4 text-gray-600 hover:text-blue-600 focus:outline-none cursor-pointer p-2 rounded-md hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-bars fa-lg"></i>
+                    </button>
+                    <h2 class="text-xl font-semibold truncate">Resumen General</h2>
+                </div>
+                <div class="flex items-center gap-2 md:gap-4">
+                    <div id="connection-status" class="hidden md:flex text-xs font-bold px-3 py-1 rounded-full bg-green-100 text-green-700 items-center">
+                        <div class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div> Online
+                    </div>
+                    <div class="md:hidden w-3 h-3 bg-green-500 rounded-full animate-pulse" title="Online"></div>
+                    <button onclick="fetchData()" class="text-gray-500 hover:text-blue-600 p-2" title="Recargar datos">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
+                    <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition">
+                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-blue-600"><i class="fas fa-euro-sign fa-2x md:fa-3x"></i></div>
+                        <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Total</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-total">0.00 €</h3>
+                        <p class="text-[10px] md:text-xs text-green-500 mt-1 md:mt-2 font-semibold"><i class="fas fa-arrow-up"></i> Acumulado</p>
+                    </div>
+                    <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
+                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-purple-600"><i class="fas fa-calendar-check fa-2x md:fa-3x"></i></div>
+                        <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Actual</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1" id="kpi-month-current">0.00 €</h3>
+                    </div>
+                    <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
+                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-orange-600"><i class="fas fa-history fa-2x md:fa-3x"></i></div>
+                        <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Anterior</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-month-prev">0.00 €</h3>
+                    </div>
+                    <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
+                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-green-600"><i class="fas fa-calendar-alt fa-2x md:fa-3x"></i></div>
+                        <p class="text-gray-500 text-xs md:text-sm font-medium">Última Compra</p>
+                        <h3 class="text-sm md:text-lg font-bold text-gray-800 mt-1 truncate" id="kpi-last-date">-</h3>
+                        <p class="text-[10px] md:text-xs text-gray-400 mt-1 truncate" id="kpi-last-vendor">-</p>
+                    </div>
+                </div>
+
+                <!-- Charts Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-gray-700 font-bold text-sm md:text-base">Gasto por Supermercado</h3>
+                            <span class="text-[10px] md:text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded-full cursor-help flex items-center"><i class="fas fa-mouse-pointer mr-1"></i> <span class="hidden md:inline">Interactivo</span></span>
+                        </div>
+                        <div class="h-56 md:h-64">
+                            <canvas id="vendorChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-gray-700 font-bold text-sm md:text-base">Distribución por Categoría</h3>
+                            <span class="text-[10px] md:text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded-full cursor-help flex items-center"><i class="fas fa-mouse-pointer mr-1"></i> <span class="hidden md:inline">Interactivo</span></span>
+                        </div>
+                        <div class="h-56 md:h-64 flex justify-center">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
-                    <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-purple-600"><i class="fas fa-calendar-check fa-2x md:fa-3x"></i></div>
-                    <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Actual</p>
-                    <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1" id="kpi-month-current">0.00 €</h3>
+                 <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+                    <h3 class="text-gray-700 font-bold mb-4 text-sm md:text-base">Evolución de Gasto Diario</h3>
+                    <div class="h-56 md:h-64 w-full">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
                 </div>
 
-                <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
-                    <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-orange-600"><i class="fas fa-history fa-2x md:fa-3x"></i></div>
-                    <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Anterior</p>
-                    <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-month-prev">0.00 €</h3>
+                <!-- Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-4 md:p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                        <h3 class="text-lg font-bold text-gray-800">Detalle de Tickets</h3>
+                        <div class="relative w-full md:w-auto">
+                            <input type="text" id="search-input" placeholder="Buscar..." 
+                                   class="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 w-full md:w-64"
+                                   onkeyup="handleSearch()">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3" onclick="sortTable('Fecha')">Fecha <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                    <th class="px-6 py-3" onclick="sortTable('Supermercado')">Super <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                    <th class="px-6 py-3 hidden md:table-cell" onclick="sortTable('Articulo')">Detalle / Ítems <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                    <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Categoria')">Cat. <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                    <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Usuario')">Usuario <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                    <th class="px-6 py-3 text-right" onclick="sortTable('Total')">Total Ticket <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div class="p-4 border-t border-gray-100 flex justify-between items-center flex-wrap gap-2">
+                        <span class="text-xs text-gray-500" id="pagination-info">Mostrando 0-0</span>
+                        <div class="flex gap-2">
+                            <button onclick="prevPage()" class="px-3 py-1 bg-gray-100 rounded text-gray-600 hover:bg-gray-200 text-xs disabled:opacity-50" id="btn-prev">Anterior</button>
+                            <button onclick="nextPage()" class="px-3 py-1 bg-gray-100 rounded text-gray-600 hover:bg-gray-200 text-xs disabled:opacity-50" id="btn-next">Siguiente</button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
-                    <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-green-600"><i class="fas fa-calendar-alt fa-2x md:fa-3x"></i></div>
-                    <p class="text-gray-500 text-xs md:text-sm font-medium">Última Compra</p>
-                    <h3 class="text-sm md:text-lg font-bold text-gray-800 mt-1 truncate" id="kpi-last-date">-</h3>
-                    <p class="text-[10px] md:text-xs text-gray-400 mt-1 truncate" id="kpi-last-vendor">-</p>
-                </div>
+                <footer class="mt-8 text-center text-xs text-gray-400 pb-4">
+                    CRM Generado para Gestión de ODS &copy; 2025
+                </footer>
             </div>
-
-            <!-- Charts Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-gray-700 font-bold text-sm md:text-base">Gasto por Supermercado</h3>
-                        <span class="text-[10px] md:text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded-full cursor-help flex items-center"><i class="fas fa-mouse-pointer mr-1"></i> <span class="hidden md:inline">Interactivo</span></span>
-                    </div>
-                    <div class="h-56 md:h-64">
-                        <canvas id="vendorChart"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-gray-700 font-bold text-sm md:text-base">Distribución por Categoría</h3>
-                        <span class="text-[10px] md:text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded-full cursor-help flex items-center"><i class="fas fa-mouse-pointer mr-1"></i> <span class="hidden md:inline">Interactivo</span></span>
-                    </div>
-                    <div class="h-56 md:h-64 flex justify-center">
-                        <canvas id="categoryChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            
-             <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-                <h3 class="text-gray-700 font-bold mb-4 text-sm md:text-base">Evolución de Gasto Diario</h3>
-                <div class="h-56 md:h-64 w-full">
-                    <canvas id="timelineChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Table -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div class="p-4 md:p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between md:items-center gap-4">
-                    <h3 class="text-lg font-bold text-gray-800">Detalle de Tickets</h3>
-                    <div class="relative w-full md:w-auto">
-                        <input type="text" id="search-input" placeholder="Buscar..." 
-                               class="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 w-full md:w-64"
-                               onkeyup="handleSearch()">
-                        <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
-                    </div>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left text-gray-500">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3" onclick="sortTable('Fecha')">Fecha <i class="fas fa-sort text-gray-300 ml-1"></i></th>
-                                <th class="px-6 py-3" onclick="sortTable('Supermercado')">Super <i class="fas fa-sort text-gray-300 ml-1"></i></th>
-                                <th class="px-6 py-3 hidden md:table-cell" onclick="sortTable('Articulo')">Artículo <i class="fas fa-sort text-gray-300 ml-1"></i></th>
-                                <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Categoria')">Cat. <i class="fas fa-sort text-gray-300 ml-1"></i></th>
-                                <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Usuario')">Usuario <i class="fas fa-sort text-gray-300 ml-1"></i></th>
-                                <th class="px-6 py-3 text-right" onclick="sortTable('Total')">Precio <i class="fas fa-sort text-gray-300 ml-1"></i></th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-body">
-                            </tbody>
-                    </table>
-                </div>
-                <div class="p-4 border-t border-gray-100 flex justify-between items-center flex-wrap gap-2">
-                    <span class="text-xs text-gray-500" id="pagination-info">Mostrando 0-0</span>
-                    <div class="flex gap-2">
-                        <button onclick="prevPage()" class="px-3 py-1 bg-gray-100 rounded text-gray-600 hover:bg-gray-200 text-xs disabled:opacity-50" id="btn-prev">Anterior</button>
-                        <button onclick="nextPage()" class="px-3 py-1 bg-gray-100 rounded text-gray-600 hover:bg-gray-200 text-xs disabled:opacity-50" id="btn-next">Siguiente</button>
-                    </div>
-                </div>
-            </div>
-
-            <footer class="mt-8 text-center text-xs text-gray-400 pb-4">
-                CRM Generado para Gestión de ODS &copy; 2025
-            </footer>
-        </div>
-    </main>
+        </main>
+    </div>
 
     <script>
-        // --- CONFIGURACIÓN ---
         const WEBHOOK_URL = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/64dbf343-08e3-4a0b-8c8f-cd87c1554115';
+        const CHAT_WEBHOOK = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/849d797e-7a0a-41df-9751-14166ad02a75';
+        
+        // --- LOGICA DE PROXIES PARA CHAT ---
+        const PROXIES = [
+            "", // Intento directo
+            "https://corsproxy.io/?",
+            "https://api.allorigins.win/raw?url="
+        ];
 
-        // Variables de estado
+        const VALID_USERS = {
+            'admin': '1234',
+            'demo': 'demo'
+        };
+
+        // --- LOGIN ---
+        function checkSession() {
+            const session = localStorage.getItem('crm_session_user');
+            if (session) {
+                showApp(session);
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const user = document.getElementById('login-user').value.toLowerCase().trim();
+            const pass = document.getElementById('login-pass').value.trim();
+            const errorDiv = document.getElementById('login-error');
+
+            if (VALID_USERS[user] && VALID_USERS[user] === pass) {
+                localStorage.setItem('crm_session_user', user);
+                errorDiv.classList.add('hidden');
+                showApp(user);
+            } else {
+                errorDiv.classList.remove('hidden');
+                document.getElementById('login-pass').value = '';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('crm_session_user');
+            location.reload();
+        }
+
+        function showApp(username) {
+            document.getElementById('login-screen').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                document.getElementById('login-screen').classList.add('hidden');
+            }, 500);
+
+            const appContent = document.getElementById('app-content');
+            appContent.classList.remove('hidden');
+            setTimeout(() => appContent.classList.remove('opacity-0'), 50);
+            
+            document.getElementById('current-user-display').innerText = username.charAt(0).toUpperCase() + username.slice(1);
+            fetchData();
+        }
+
+        checkSession();
+
+        // --- LOGICA DEL CRM ---
         let allData = [];
         let filteredData = [];
         let currentPage = 1;
         const rowsPerPage = 10;
         let sortCol = 'Fecha';
         let sortAsc = false;
-        
-        let charts = { vendor: null, category: null, timeline: null };
+        let charts = { vendor: null, category: null, timeline: null, comparator: null };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            fetchData();
-        });
-
-        // --- FUNCIONES MÓVIL (CORREGIDO) ---
         function toggleMobileMenu() {
             const sidebar = document.getElementById('main-sidebar');
             const overlay = document.getElementById('mobile-menu-overlay');
-            
-            // Comprobar si está oculto (tiene la clase de desplazamiento negativo)
             if (sidebar.classList.contains('-translate-x-full')) {
-                // ABRIR
                 sidebar.classList.remove('-translate-x-full');
-                sidebar.classList.add('translate-x-0'); // Forzar posición visible
-                
+                sidebar.classList.add('translate-x-0');
                 overlay.classList.remove('hidden');
                 setTimeout(() => overlay.classList.remove('opacity-0'), 10);
             } else {
-                // CERRAR
-                sidebar.classList.remove('translate-x-0'); // Quitar posición visible
-                sidebar.classList.add('-translate-x-full'); // Volver a ocultar
-                
+                sidebar.classList.remove('translate-x-0');
+                sidebar.classList.add('-translate-x-full');
                 overlay.classList.add('opacity-0');
                 setTimeout(() => overlay.classList.add('hidden'), 300);
             }
         }
 
+        // --- FETCH DATOS ---
         async function fetchData() {
             const loader = document.getElementById('loader');
-            // const statusBadge = document.getElementById('connection-status'); // Seleccionado dentro de lógica ahora
-            loader.style.display = 'flex';
+            if (loader) loader.style.display = 'flex';
 
-            try {
-                const response = await fetch(WEBHOOK_URL, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' }
-                });
-
-                if (!response.ok) throw new Error('Error en la respuesta del servidor');
-                
-                const json = await response.json();
-                
-                if (Array.isArray(json) && json.length > 0) {
-                    allData = processData(json);
-                    // Actualizar indicadores (móvil y escritorio)
-                    // No hace falta código extra, el CSS oculta/muestra los divs adecuados
-                } else {
-                    throw new Error('Datos vacíos o formato incorrecto');
+            // Usar proxy para datos también
+            let success = false;
+            for (const proxy of PROXIES) {
+                try {
+                    const target = proxy + encodeURIComponent(WEBHOOK_URL);
+                    const url = proxy === "" ? WEBHOOK_URL : target; // Directo si proxy es vacío
+                    
+                    const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+                    
+                    if (response.ok) {
+                        const json = await response.json();
+                        // Algunos proxies envuelven la respuesta
+                        const data = (json.contents && proxy.includes('allorigins')) ? JSON.parse(json.contents) : json;
+                        
+                        if (Array.isArray(data) && data.length > 0) {
+                            allData = processData(data);
+                            success = true;
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    console.log(`Intento fallido con ${proxy || "Directo"}:`, e);
                 }
-
-            } catch (error) {
-                console.warn("Fallo al conectar con n8n:", error);
-                allData = generateDemoData();
-                // En caso de demo, podrías cambiar el color de los indicadores con JS si quisieras
-                document.getElementById('loader-text').innerText = "Cargando modo demostración...";
-                await new Promise(r => setTimeout(r, 800));
-            } finally {
-                populateFilters();
-                applyFilters();
-                loader.style.display = 'none';
             }
+
+            if (!success) {
+                console.warn("Fallo total de conexión:", "Usando Demo");
+                allData = generateDemoData();
+                const loaderText = document.getElementById('loader-text');
+                if (loaderText) loaderText.innerText = "Cargando Demo (Offline)...";
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            populateFilters();
+            applyFilters();
+            if (loader) loader.style.display = 'none';
         }
 
         function processData(data) {
-            return data.map(item => ({
-                Supermercado: item.Supermercado || "Desconocido",
-                Direccion: item.Direccion || "",
-                Poblacion: item.Poblacion || "General",
-                Fecha: item.Fecha || new Date().toISOString().split('T')[0],
-                Articulo: item.Articulo || "Producto Vario",
-                CantidadPeso: parseFloat(item.CantidadPeso) || 1,
-                Total: parseFloat(item.Total) || 0,
-                Categoria: item.Categoria || "Otros",
-                Usuario: item.Usuario || "Desconocido",
-                PrecioUnitario: parseFloat(item["Precio Unitario"]) || 0,
-                Descuento: parseFloat(item.Descuento) || 0
-            }));
+            return data.map(item => {
+                const rawPrecio = parseFloat(item["Precio Unitario"]) || 0;
+                const rawTotal = parseFloat(item.Total) || 0;
+                const qty = parseFloat(item.CantidadPeso) || 1;
+                const precioUnitario = rawPrecio > 0 ? rawPrecio : (qty > 0 ? rawTotal / qty : 0);
+
+                return {
+                    Supermercado: item.Supermercado || "Desconocido",
+                    Direccion: item.Direccion || "",
+                    Poblacion: item.Poblacion || "General",
+                    Fecha: item.Fecha || new Date().toISOString().split('T')[0],
+                    Articulo: item.Articulo || "Producto Vario",
+                    CantidadPeso: qty,
+                    Total: rawTotal,
+                    Categoria: item.Categoria || "Otros",
+                    Usuario: item.Usuario || "Desconocido",
+                    PrecioUnitario: precioUnitario,
+                    Descuento: parseFloat(item.Descuento) || 0
+                };
+            });
         }
 
         function generateDemoData() {
             const vendors = ['LIDL', 'Mercadona', 'Carrefour', 'Dia', 'Repsol'];
             const cats = ['Alimentación', 'Higiene', 'Limpieza', 'Gasolina', 'Bazar'];
-            const products = ['Leche', 'Pan', 'Detergente', 'Gasolina 95', 'Galletas', 'Fruta', 'Verdura', 'Champú'];
+            const products = ['Leche', 'Pan', 'Detergente', 'Gasolina 95', 'Galletas', 'Tomate', 'Verdura', 'Champú'];
             const users = ['Juan', 'Maria', 'Carlos'];
             let data = [];
             for(let i=0; i<50; i++) {
                 const date = new Date();
                 date.setDate(date.getDate() - Math.floor(Math.random() * 60));
+                const total = parseFloat((Math.random() * 20 + 1).toFixed(2));
+                const qty = Math.floor(Math.random() * 3) + 1;
                 data.push({
                     Supermercado: vendors[Math.floor(Math.random()*vendors.length)],
                     Direccion: 'Calle Demo ' + i,
                     Poblacion: i % 2 === 0 ? 'Sevilla' : 'Dos Hermanas',
                     Fecha: date.toISOString().split('T')[0],
                     Articulo: products[Math.floor(Math.random()*products.length)],
-                    CantidadPeso: 1,
-                    Total: parseFloat((Math.random() * 20 + 1).toFixed(2)),
+                    CantidadPeso: qty,
+                    Total: total,
+                    PrecioUnitario: total/qty,
                     Categoria: cats[Math.floor(Math.random()*cats.length)],
                     Usuario: users[Math.floor(Math.random()*users.length)]
                 });
@@ -387,37 +610,21 @@
             const cats = [...new Set(allData.map(d => d.Categoria))].sort();
             const users = [...new Set(allData.map(d => d.Usuario))].sort();
 
-            const vendorSel = document.getElementById('filter-supermarket');
-            const catSel = document.getElementById('filter-category');
-            const userSel = document.getElementById('filter-user');
-            
-            const currentVendor = vendorSel.value;
-            const currentCat = catSel.value;
-            const currentUser = userSel.value;
-            
-            vendorSel.innerHTML = '<option value="">Todos</option>';
-            catSel.innerHTML = '<option value="">Todas</option>';
-            userSel.innerHTML = '<option value="">Todos</option>';
+            const updateSel = (id, arr) => {
+                const el = document.getElementById(id);
+                const current = el.value;
+                el.innerHTML = '<option value="">Todos</option>';
+                arr.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v; opt.innerText = v;
+                    el.appendChild(opt);
+                });
+                if (arr.includes(current)) el.value = current;
+            };
 
-            vendors.forEach(v => {
-                const opt = document.createElement('option');
-                opt.value = v; opt.innerText = v;
-                vendorSel.appendChild(opt);
-            });
-            cats.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c; opt.innerText = c;
-                catSel.appendChild(opt);
-            });
-            users.forEach(u => {
-                const opt = document.createElement('option');
-                opt.value = u; opt.innerText = u;
-                userSel.appendChild(opt);
-            });
-            
-            if(vendors.includes(currentVendor)) vendorSel.value = currentVendor;
-            if(cats.includes(currentCat)) catSel.value = currentCat;
-            if(users.includes(currentUser)) userSel.value = currentUser;
+            updateSel('filter-supermarket', vendors);
+            updateSel('filter-category', cats);
+            updateSel('filter-user', users);
         }
 
         function applyFilters() {
@@ -434,9 +641,7 @@
                 const matchUser = !userFilter || item.Usuario === userFilter;
                 const matchDateStart = !dateStart || item.Fecha >= dateStart;
                 const matchDateEnd = !dateEnd || item.Fecha <= dateEnd;
-                const matchSearch = !search || 
-                                    item.Articulo.toLowerCase().includes(search) || 
-                                    item.Supermercado.toLowerCase().includes(search);
+                const matchSearch = !search || item.Articulo.toLowerCase().includes(search) || item.Supermercado.toLowerCase().includes(search);
                 return matchVendor && matchCat && matchUser && matchDateStart && matchDateEnd && matchSearch;
             });
 
@@ -456,12 +661,7 @@
         }
 
         function resetFilters() {
-            document.getElementById('filter-supermarket').value = "";
-            document.getElementById('filter-category').value = "";
-            document.getElementById('filter-user').value = "";
-            document.getElementById('filter-date-start').value = "";
-            document.getElementById('filter-date-end').value = "";
-            document.getElementById('search-input').value = "";
+            ['filter-supermarket', 'filter-category', 'filter-user', 'filter-date-start', 'filter-date-end', 'search-input'].forEach(id => document.getElementById(id).value = "");
             applyFilters();
         }
 
@@ -475,54 +675,39 @@
         function nextPage() { if((currentPage * rowsPerPage) < filteredData.length) { currentPage++; renderTable(); } }
 
         function updateDashboard() {
-            // Gasto Total (Respeta todos los filtros, incluidas fechas)
             const total = filteredData.reduce((acc, curr) => acc + curr.Total, 0);
             
-            // --- CÁLCULO GASTOS MENSUALES (Respeta filtros dropdown, IGNORA fechas) ---
             const vendorFilter = document.getElementById('filter-supermarket').value;
             const catFilter = document.getElementById('filter-category').value;
             const userFilter = document.getElementById('filter-user').value;
 
-            // Datos base filtrados solo por dropdowns (sin rango de fecha)
             const contextualData = allData.filter(item => {
-                const matchVendor = !vendorFilter || item.Supermercado === vendorFilter;
-                const matchCat = !catFilter || item.Categoria === catFilter;
-                const matchUser = !userFilter || item.Usuario === userFilter;
-                return matchVendor && matchCat && matchUser;
+                return (!vendorFilter || item.Supermercado === vendorFilter) &&
+                       (!catFilter || item.Categoria === catFilter) &&
+                       (!userFilter || item.Usuario === userFilter);
             });
 
-            // Definir mes actual y anterior
             const now = new Date();
-            const currentMonth = now.getMonth();
-            const currentYear = now.getFullYear();
-            
-            const prevDate = new Date();
-            prevDate.setMonth(prevDate.getMonth() - 1);
-            const prevMonth = prevDate.getMonth();
-            const prevYear = prevDate.getFullYear();
+            const currMonth = now.getMonth(), currYear = now.getFullYear();
+            const prevDate = new Date(); prevDate.setMonth(prevDate.getMonth() - 1);
+            const prevMonth = prevDate.getMonth(), prevYear = prevDate.getFullYear();
 
-            const currentMonthTotal = contextualData.reduce((acc, curr) => {
+            const currentTotal = contextualData.reduce((acc, curr) => {
                 const d = new Date(curr.Fecha);
-                if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) return acc + curr.Total;
-                return acc;
+                return (d.getMonth() === currMonth && d.getFullYear() === currYear) ? acc + curr.Total : acc;
             }, 0);
 
-            const prevMonthTotal = contextualData.reduce((acc, curr) => {
+            const prevTotal = contextualData.reduce((acc, curr) => {
                 const d = new Date(curr.Fecha);
-                if (d.getMonth() === prevMonth && d.getFullYear() === prevYear) return acc + curr.Total;
-                return acc;
+                return (d.getMonth() === prevMonth && d.getFullYear() === prevYear) ? acc + curr.Total : acc;
             }, 0);
 
-            // Actualizar DOM
             document.getElementById('kpi-total').innerText = total.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
-            document.getElementById('kpi-month-current').innerText = currentMonthTotal.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
-            document.getElementById('kpi-month-prev').innerText = prevMonthTotal.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+            document.getElementById('kpi-month-current').innerText = currentTotal.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+            document.getElementById('kpi-month-prev').innerText = prevTotal.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
 
             if (filteredData.length > 0) {
-                // Encontrar la fecha más reciente en los datos filtrados
-                // Ordenar temp para obtener max fecha
-                const sorted = [...filteredData].sort((a,b) => new Date(b.Fecha) - new Date(a.Fecha));
-                const last = sorted[0];
+                const last = filteredData[0];
                 document.getElementById('kpi-last-date').innerText = new Date(last.Fecha).toLocaleDateString('es-ES');
                 document.getElementById('kpi-last-vendor').innerText = last.Supermercado;
             } else {
@@ -531,12 +716,63 @@
             }
         }
 
+        // --- AGREGAR FUNCIÓN PARA AGRUPAR POR TICKET ---
+        function groupTickets(data) {
+            const grouped = {};
+            data.forEach(item => {
+                const key = `${item.Fecha}_${item.Supermercado}_${item.Usuario}`;
+                if (!grouped[key]) {
+                    grouped[key] = {
+                        Fecha: item.Fecha,
+                        Supermercado: item.Supermercado,
+                        Poblacion: item.Poblacion,
+                        Usuario: item.Usuario,
+                        Total: 0,
+                        Items: [],
+                        Categorias: new Set()
+                    };
+                }
+                grouped[key].Total += item.Total;
+                grouped[key].Items.push(item.Articulo);
+                grouped[key].Categorias.add(item.Categoria);
+            });
+
+            return Object.values(grouped).map(g => {
+                let catText = "Varios";
+                if(g.Categorias.size === 1) catText = Array.from(g.Categorias)[0];
+                else if(g.Categorias.size > 1) catText = "Compra Mixta";
+
+                // Crear resumen de artículos
+                let artText = g.Items[0];
+                if (g.Items.length > 1) {
+                    artText += `, ${g.Items[1]}`;
+                }
+                if (g.Items.length > 2) {
+                    artText += ` y ${g.Items.length - 2} más...`;
+                }
+
+                return {
+                    Fecha: g.Fecha,
+                    Supermercado: g.Supermercado,
+                    Articulo: artText, // Resumen
+                    Categoria: catText,
+                    Poblacion: g.Poblacion,
+                    Usuario: g.Usuario,
+                    Total: g.Total
+                };
+            });
+        }
+
         function renderTable() {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
+            
+            // AGRUPAR DATOS ANTES DE PAGINAR
+            const groupedData = groupTickets(filteredData);
+
             const start = (currentPage - 1) * rowsPerPage;
             const end = start + rowsPerPage;
-            const pageData = filteredData.slice(start, end);
+            const pageData = groupedData.slice(start, end);
 
             if (pageData.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-400">No se encontraron datos</td></tr>';
@@ -551,6 +787,7 @@
                 let catColor = "bg-gray-100 text-gray-800";
                 if(row.Categoria === 'Alimentación') catColor = "bg-green-100 text-green-800";
                 else if(row.Categoria === 'Gasolina') catColor = "bg-red-100 text-red-800";
+                else if(row.Categoria === 'Compra Mixta') catColor = "bg-purple-100 text-purple-800";
                 else if(row.Categoria.includes('Limpieza')) catColor = "bg-blue-100 text-blue-800";
 
                 tr.innerHTML = `
@@ -564,12 +801,218 @@
                 tbody.appendChild(tr);
             });
 
-            document.getElementById('pagination-info').innerText = `Mostrando ${start + 1}-${Math.min(end, filteredData.length)} de ${filteredData.length}`;
+            document.getElementById('pagination-info').innerText = `Mostrando ${start + 1}-${Math.min(end, groupedData.length)} de ${groupedData.length}`;
             document.getElementById('btn-prev').disabled = currentPage === 1;
-            document.getElementById('btn-next').disabled = end >= filteredData.length;
+            document.getElementById('btn-next').disabled = end >= groupedData.length;
         }
 
-        // --- FUNCIONES SIDEBAR ---
+        // --- COMPARADOR ---
+        function openComparator() {
+            document.getElementById('comparator-modal').classList.remove('hidden');
+            document.getElementById('comparator-search').focus();
+        }
+
+        function closeComparator() {
+            document.getElementById('comparator-modal').classList.add('hidden');
+        }
+
+        function handleComparatorSearch(e) {
+            const term = e.target.value.toLowerCase();
+            const resultsContainer = document.getElementById('comparator-results');
+            const emptyContainer = document.getElementById('comparator-empty');
+            
+            if (term.length < 2) {
+                resultsContainer.classList.add('hidden');
+                emptyContainer.classList.remove('hidden');
+                return;
+            }
+
+            const dates = allData.map(d => new Date(d.Fecha));
+            const maxDate = new Date(Math.max.apply(null, dates));
+            const minDate = new Date(maxDate);
+            minDate.setDate(minDate.getDate() - 30);
+
+            const matchedData = allData.filter(d => {
+                const dDate = new Date(d.Fecha);
+                return d.Articulo.toLowerCase().includes(term) && dDate >= minDate;
+            });
+
+            if (matchedData.length === 0) {
+                if (charts.comparator) charts.comparator.destroy();
+                return;
+            }
+
+            resultsContainer.classList.remove('hidden');
+            emptyContainer.classList.add('hidden');
+
+            const grouped = matchedData.reduce((acc, curr) => {
+                if (!acc[curr.Supermercado]) acc[curr.Supermercado] = { total: 0, count: 0, lastPrice: 0, lastDate: '' };
+                acc[curr.Supermercado].total += curr.PrecioUnitario;
+                acc[curr.Supermercado].count += 1;
+                if (!acc[curr.Supermercado].lastDate || curr.Fecha > acc[curr.Supermercado].lastDate) {
+                    acc[curr.Supermercado].lastPrice = curr.PrecioUnitario;
+                    acc[curr.Supermercado].lastDate = curr.Fecha;
+                }
+                return acc;
+            }, {});
+
+            const labels = Object.keys(grouped);
+            const avgPrices = labels.map(k => grouped[k].total / grouped[k].count);
+
+            if (charts.comparator) charts.comparator.destroy();
+            const ctx = document.getElementById('comparatorChart').getContext('2d');
+            charts.comparator = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Precio Medio Unitario (€)',
+                        data: avgPrices,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6,
+                        barThickness: 40
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Precio (€)' } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const tbody = document.getElementById('comparator-table-body');
+            tbody.innerHTML = '';
+            labels.forEach((superm, i) => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-gray-100 hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-medium text-gray-800">${superm}</td>
+                    <td class="px-4 py-3 text-right text-blue-600 font-bold">${avgPrices[i].toFixed(2)} €</td>
+                    <td class="px-4 py-3 text-right text-gray-600">${grouped[superm].lastPrice.toFixed(2)} €</td>
+                    <td class="px-4 py-3 text-right text-gray-400 text-xs">${grouped[superm].lastDate}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- CHAT MULTI-FALLBACK ---
+        function toggleChat() {
+            const chat = document.getElementById('chat-window');
+            if (chat.classList.contains('hidden')) {
+                chat.classList.remove('hidden');
+                document.getElementById('chat-input').focus();
+            } else {
+                chat.classList.add('hidden');
+            }
+        }
+
+        function handleChatEnter(e) {
+            if(e.key === 'Enter') sendChatMessage();
+        }
+
+        function addMessage(text, isUser = true) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `p-3 rounded-2xl max-w-[85%] shadow-sm text-sm ${isUser ? 'msg-user rounded-br-none' : 'msg-bot rounded-bl-none'}`;
+            // USAR INNERHTML PARA RENDERIZAR <br> y <b>
+            div.innerHTML = text; 
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addSystemMessage(html) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = 'msg-system p-2 rounded my-2';
+            div.innerHTML = html;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            addMessage(text, true);
+            input.value = '';
+            
+            const btn = document.getElementById('chat-send-btn');
+            btn.disabled = true;
+            
+            const container = document.getElementById('chat-messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'chat-typing';
+            typingDiv.className = 'msg-bot p-3 rounded-2xl rounded-bl-none text-xs text-gray-500 italic';
+            typingDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-1"></i> Escribiendo...';
+            container.appendChild(typingDiv);
+            container.scrollTop = container.scrollHeight;
+
+            // Obtener el usuario actual para el contexto
+            const currentUser = localStorage.getItem('crm_session_user') || 'usuario_anonimo';
+
+            let success = false;
+
+            // Intentar con lista de proxies
+            for (const proxy of PROXIES) {
+                try {
+                    const target = proxy + encodeURIComponent(CHAT_WEBHOOK);
+                    const url = proxy === "" ? CHAT_WEBHOOK : target; 
+                    
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json' 
+                        },
+                        // AÑADIDO: sessionId para mantener el contexto en n8n
+                        body: JSON.stringify({ 
+                            message: text,
+                            sessionId: currentUser 
+                        })
+                    });
+
+                    if (response.ok) {
+                        const json = await response.json();
+                        
+                        // Normalizar datos (por si viene de proxy o directo)
+                        let data = (json.contents && proxy.includes('allorigins')) ? JSON.parse(json.contents) : json;
+
+                        // 1. Si es array (formato n8n habitual), tomamos el primer elemento
+                        if (Array.isArray(data) && data.length > 0) {
+                            data = data[0];
+                        }
+
+                        // 2. Extraer el texto
+                        let rawText = data.output || data.message || (typeof data === 'object' ? JSON.stringify(data) : data);
+
+                        // 3. Formatear (Markdown básico a HTML)
+                        let formattedText = String(rawText)
+                            .replace(/\n/g, '<br>')
+                            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+                            .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="underline text-blue-600">$1</a>');
+                        
+                        if(document.getElementById('chat-typing')) document.getElementById('chat-typing').remove();
+                        addMessage(formattedText, false);
+                        success = true;
+                        break; 
+                    }
+                } catch (e) {
+                    console.warn(`Chat falló con proxy ${proxy}:`, e);
+                }
+            }
+
+            if (!success) {
+                if(document.getElementById('chat-typing')) document.getElementById('chat-typing').remove();
+                addSystemMessage('<i class="fas fa-exclamation-triangle"></i> Error CORS: El servidor bloqueó la respuesta.<br>Configura <b>"Allowed Origins: *"</b> en el Webhook de n8n.');
+            }
+
+            btn.disabled = false;
+            input.focus();
+        }
+
+        // --- SIDEBAR DETALLES ---
         function openSidebar(title, filterKey, filterValue) {
             const sidebar = document.getElementById('details-sidebar');
             const overlay = document.getElementById('details-overlay');
@@ -577,13 +1020,11 @@
             
             document.getElementById('sidebar-title').innerText = filterValue;
             
-            // Lógica "Último Mes"
             const dates = allData.map(d => new Date(d.Fecha));
             const maxDate = new Date(Math.max.apply(null, dates));
             const minDate = new Date(maxDate);
             minDate.setDate(minDate.getDate() - 30); 
 
-            // Filtrar datos
             const detailsData = allData.filter(d => {
                 const dDate = new Date(d.Fecha);
                 return d[filterKey] === filterValue && dDate >= minDate;
@@ -595,7 +1036,6 @@
             document.getElementById('sidebar-count').innerText = `${detailsData.length} tickets`;
 
             content.innerHTML = '';
-            
             if(detailsData.length === 0) {
                 content.innerHTML = '<div class="text-center text-gray-400 mt-10"><i class="fas fa-inbox fa-2x mb-2"></i><br>Sin movimientos recientes</div>';
             } else {
@@ -624,7 +1064,6 @@
         function closeSidebar() {
             const sidebar = document.getElementById('details-sidebar');
             const overlay = document.getElementById('details-overlay');
-            
             sidebar.classList.add('translate-x-full');
             overlay.classList.add('opacity-0');
             setTimeout(() => overlay.classList.add('hidden'), 300);
@@ -633,36 +1072,25 @@
         function renderCharts() {
             if (!filteredData || filteredData.length === 0) return;
 
-            const groupBy = (arr, key) => {
-                return arr.reduce((acc, curr) => {
-                    const value = curr[key] || 'Sin categoría';
-                    acc[value] = (acc[value] || 0) + curr.Total;
-                    return acc;
-                }, {});
-            };
+            const groupBy = (arr, key) => arr.reduce((acc, curr) => {
+                const value = curr[key] || 'Sin categoría';
+                acc[value] = (acc[value] || 0) + curr.Total;
+                return acc;
+            }, {});
 
-            const vendorDataRaw = groupBy(filteredData, 'Supermercado');
-            const vendorLabels = Object.keys(vendorDataRaw);
-            const vendorValues = Object.values(vendorDataRaw);
+            const vendorData = groupBy(filteredData, 'Supermercado');
+            const catData = groupBy(filteredData, 'Categoria');
+            const timeData = groupBy(filteredData, 'Fecha');
 
-            const catDataRaw = groupBy(filteredData, 'Categoria');
-            const catLabels = Object.keys(catDataRaw);
-            const catValues = Object.values(catDataRaw);
-
-            const timeDataRaw = groupBy(filteredData, 'Fecha');
-            const timeLabels = Object.keys(timeDataRaw).sort();
-            const timeValues = timeLabels.map(k => timeDataRaw[k]);
-
-            // Chart: Supermercados
+            // Bar Chart
             if (charts.vendor) charts.vendor.destroy();
-            const ctxVendor = document.getElementById('vendorChart').getContext('2d');
-            charts.vendor = new Chart(ctxVendor, {
+            charts.vendor = new Chart(document.getElementById('vendorChart'), {
                 type: 'bar',
                 data: {
-                    labels: vendorLabels,
+                    labels: Object.keys(vendorData),
                     datasets: [{
                         label: 'Gasto (€)',
-                        data: vendorValues,
+                        data: Object.values(vendorData),
                         backgroundColor: '#3b82f6',
                         borderRadius: 5,
                         hoverBackgroundColor: '#2563eb'
@@ -673,62 +1101,46 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: { y: { beginAtZero: true } },
-                    onHover: (event, chartElement) => {
-                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
-                    },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const idx = elements[0].index;
-                            openSidebar('Supermercado', 'Supermercado', vendorLabels[idx]);
-                        }
+                    onHover: (e, el) => e.native.target.style.cursor = el[0] ? 'pointer' : 'default',
+                    onClick: (e, el) => {
+                        if (el.length > 0) openSidebar('Supermercado', 'Supermercado', Object.keys(vendorData)[el[0].index]);
                     }
                 }
             });
 
-            // Chart: Categorías
+            // Pie Chart
             if (charts.category) charts.category.destroy();
-            const ctxCat = document.getElementById('categoryChart').getContext('2d');
-            charts.category = new Chart(ctxCat, {
+            charts.category = new Chart(document.getElementById('categoryChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: catLabels,
+                    labels: Object.keys(catData),
                     datasets: [{
-                        data: catValues,
-                        backgroundColor: [
-                            '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1',
-                            '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#a855f7', '#f43f5e'
-                        ],
+                        data: Object.values(catData),
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#f97316'],
                         borderWidth: 0
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { position: 'right', labels: { boxWidth: 10, font: {size: 11} } } 
-                    },
-                    onHover: (event, chartElement) => {
-                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
-                    },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const idx = elements[0].index;
-                            openSidebar('Categoría', 'Categoria', catLabels[idx]);
-                        }
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 11} } } },
+                    onHover: (e, el) => e.native.target.style.cursor = el[0] ? 'pointer' : 'default',
+                    onClick: (e, el) => {
+                        if (el.length > 0) openSidebar('Categoría', 'Categoria', Object.keys(catData)[el[0].index]);
                     }
                 }
             });
 
-            // Chart: Timeline
+            // Line Chart
             if (charts.timeline) charts.timeline.destroy();
-            const ctxTime = document.getElementById('timelineChart').getContext('2d');
-            charts.timeline = new Chart(ctxTime, {
+            const timeLabels = Object.keys(timeData).sort();
+            charts.timeline = new Chart(document.getElementById('timelineChart'), {
                 type: 'line',
                 data: {
                     labels: timeLabels,
                     datasets: [{
                         label: 'Gasto Diario (€)',
-                        data: timeValues,
+                        data: timeLabels.map(k => timeData[k]),
                         borderColor: '#8b5cf6',
                         backgroundColor: 'rgba(139, 92, 246, 0.1)',
                         fill: true,
@@ -740,10 +1152,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { 
-                        x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
-                        y: { beginAtZero: true } 
-                    }
+                    scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } }, y: { beginAtZero: true } }
                 }
             });
         }
