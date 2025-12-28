@@ -25,6 +25,11 @@
         th { cursor: pointer; user-select: none; }
         th:hover { color: var(--primary); }
 
+        /* Estilo para filas cobradas */
+        .row-paid { background-color: #dcfce7 !important; color: #166534; }
+        .row-paid td { border-color: #bbf7d0; }
+        .row-paid:hover { background-color: #bbf7d0 !important; }
+
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -51,9 +56,17 @@
         .msg-user { background-color: #2563eb; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
         .msg-bot { background-color: #f1f5f9; color: #1e293b; align-self: flex-start; border-bottom-left-radius: 2px; line-height: 1.5; }
         .msg-system { background-color: #fee2e2; color: #991b1b; align-self: center; font-size: 0.75rem; width: 90%; text-align: center; border: 1px solid #fecaca; }
+
+        /* Toast Notification */
+        #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
+        .toast { padding: 10px 20px; border-radius: 50px; color: white; font-size: 0.9rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: opacity 0.3s; opacity: 0; }
+        .toast.show { opacity: 1; }
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden">
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast-container"></div>
 
     <!-- PANTALLA DE LOGIN -->
     <div id="login-screen" class="fixed inset-0 z-[100] flex items-center justify-center login-bg transition-opacity duration-500">
@@ -387,11 +400,17 @@
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div class="p-4 md:p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between md:items-center gap-4">
                         <h3 class="text-lg font-bold text-gray-800">Detalle de Tickets</h3>
-                        <div class="relative w-full md:w-auto">
-                            <input type="text" id="search-input" placeholder="Buscar..." 
-                                   class="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 w-full md:w-64"
-                                   onkeyup="handleSearch()">
-                            <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <!-- BOTÓN EXPORTAR CSV -->
+                            <button onclick="exportToCSV()" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition flex items-center gap-2 shadow-sm">
+                                <i class="fas fa-file-excel"></i> <span class="hidden sm:inline">Descargar Excel</span>
+                            </button>
+                            <div class="relative w-full md:w-64">
+                                <input type="text" id="search-input" placeholder="Buscar..." 
+                                       class="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 w-full"
+                                       onkeyup="handleSearch()">
+                                <i class="fas fa-search absolute left-3 top-3 text-gray-400 text-sm"></i>
+                            </div>
                         </div>
                     </div>
                     <div class="overflow-x-auto">
@@ -403,7 +422,8 @@
                                     <th class="px-6 py-3 hidden md:table-cell" onclick="sortTable('Articulo')">Detalle / Ítems <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                                     <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Categoria')">Cat. <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                                     <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Usuario')">Usuario <i class="fas fa-sort text-gray-300 ml-1"></i></th>
-                                    <th class="px-6 py-3 text-right" onclick="sortTable('Total')">Total Ticket <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                    <th class="px-6 py-3 text-right" onclick="sortTable('Total')">Total <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                    <th class="px-6 py-3 text-center">Cobrado</th>
                                 </tr>
                             </thead>
                             <tbody id="table-body">
@@ -427,8 +447,12 @@
     </div>
 
     <script>
+        // CONFIGURACIÓN DE URLS - AQUÍ DEBES PONER TUS URLS REALES
         const WEBHOOK_URL = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/64dbf343-08e3-4a0b-8c8f-cd87c1554115';
         const CHAT_WEBHOOK = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/849d797e-7a0a-41df-9751-14166ad02a75';
+        
+        // URL ACTUALIZADA A PRODUCCIÓN
+        const UPDATE_WEBHOOK_URL = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/UPDATE_TICKET_STATUS'; 
         
         // --- LOGICA DE PROXIES PARA CHAT ---
         const PROXIES = [
@@ -441,6 +465,33 @@
             'francis': 'Galvan@7678',
             'sonia': 'Minie@7678'
         };
+
+        // --- FUNCIONES TOAST ---
+        function showToast(message, color = "blue") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = "bg-blue-600";
+            if (color === "green") bgClass = "bg-green-600";
+            if (color === "red") bgClass = "bg-red-600";
+            if (color === "orange") bgClass = "bg-orange-500";
+
+            toast.className = `toast ${bgClass}`;
+            toast.innerHTML = message;
+            
+            container.appendChild(toast);
+            
+            // Animación Entrada
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            // Animación Salida
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
 
         // --- LOGIN ---
         function checkSession() {
@@ -495,6 +546,8 @@
         let sortCol = 'Fecha';
         let sortAsc = false;
         let charts = { vendor: null, category: null, timeline: null, comparator: null };
+        // Persistencia de Tickets Cobrados
+        let paidTickets = new Set(JSON.parse(localStorage.getItem('paid_tickets') || '[]'));
 
         function toggleMobileMenu() {
             const sidebar = document.getElementById('main-sidebar');
@@ -528,7 +581,6 @@
                     
                     if (response.ok) {
                         const json = await response.json();
-                        // Algunos proxies envuelven la respuesta
                         const data = (json.contents && proxy.includes('allorigins')) ? JSON.parse(json.contents) : json;
                         
                         if (Array.isArray(data) && data.length > 0) {
@@ -555,6 +607,7 @@
             if (loader) loader.style.display = 'none';
         }
 
+        // --- PROCESAMIENTO DE DATOS CON HORA ---
         function processData(data) {
             return data.map(item => {
                 const rawPrecio = parseFloat(item["Precio Unitario"]) || 0;
@@ -567,6 +620,8 @@
                     Direccion: item.Direccion || "",
                     Poblacion: item.Poblacion || "General",
                     Fecha: item.Fecha || new Date().toISOString().split('T')[0],
+                    // AÑADIDO: Campo Hora
+                    Hora: item.Hora || "00:00:00",
                     Articulo: item.Articulo || "Producto Vario",
                     CantidadPeso: qty,
                     Total: rawTotal,
@@ -589,11 +644,16 @@
                 date.setDate(date.getDate() - Math.floor(Math.random() * 60));
                 const total = parseFloat((Math.random() * 20 + 1).toFixed(2));
                 const qty = Math.floor(Math.random() * 3) + 1;
+                
+                // AÑADIDO: Generar hora aleatoria para demos
+                const hour = String(Math.floor(Math.random() * 24)).padStart(2, '0') + ":" + String(Math.floor(Math.random() * 60)).padStart(2, '0');
+
                 data.push({
                     Supermercado: vendors[Math.floor(Math.random()*vendors.length)],
                     Direccion: 'Calle Demo ' + i,
                     Poblacion: i % 2 === 0 ? 'Sevilla' : 'Dos Hermanas',
                     Fecha: date.toISOString().split('T')[0],
+                    Hora: hour,
                     Articulo: products[Math.floor(Math.random()*products.length)],
                     CantidadPeso: qty,
                     Total: total,
@@ -716,14 +776,18 @@
             }
         }
 
-        // --- AGREGAR FUNCIÓN PARA AGRUPAR POR TICKET ---
+        // --- FUNCIÓN DE AGRUPACIÓN ACTUALIZADA CON HORA ---
         function groupTickets(data) {
             const grouped = {};
             data.forEach(item => {
-                const key = `${item.Fecha}_${item.Supermercado}_${item.Usuario}`;
+                // CLAVE ÚNICA AHORA INCLUYE LA HORA
+                const key = `${item.Fecha}_${item.Hora}_${item.Supermercado}_${item.Usuario}`;
+                
                 if (!grouped[key]) {
                     grouped[key] = {
+                        id: key, 
                         Fecha: item.Fecha,
+                        Hora: item.Hora, // Guardamos la hora para visualizar
                         Supermercado: item.Supermercado,
                         Poblacion: item.Poblacion,
                         Usuario: item.Usuario,
@@ -742,19 +806,15 @@
                 if(g.Categorias.size === 1) catText = Array.from(g.Categorias)[0];
                 else if(g.Categorias.size > 1) catText = "Compra Mixta";
 
-                // Crear resumen de artículos
                 let artText = g.Items[0];
-                if (g.Items.length > 1) {
-                    artText += `, ${g.Items[1]}`;
-                }
-                if (g.Items.length > 2) {
-                    artText += ` y ${g.Items.length - 2} más...`;
-                }
+                if (g.Items.length > 1) artText += `, ${g.Items[1]}`;
+                if (g.Items.length > 2) artText += ` y ${g.Items.length - 2} más...`;
 
                 return {
+                    id: g.id,
                     Fecha: g.Fecha,
                     Supermercado: g.Supermercado,
-                    Articulo: artText, // Resumen
+                    Articulo: artText, 
                     Categoria: catText,
                     Poblacion: g.Poblacion,
                     Usuario: g.Usuario,
@@ -763,13 +823,90 @@
             });
         }
 
+        // --- ACTUALIZACIÓN DE ESTADO CON NUEVA ESTRUCTURA ---
+        async function togglePaid(ticketId) {
+            const isPaid = !paidTickets.has(ticketId); 
+            
+            if (isPaid) {
+                paidTickets.add(ticketId);
+            } else {
+                paidTickets.delete(ticketId);
+            }
+            localStorage.setItem('paid_tickets', JSON.stringify([...paidTickets]));
+            renderTable();
+
+            showToast("Sincronizando...", "blue");
+            
+            try {
+                // AHORA TENEMOS 4 CAMPOS EN EL ID
+                const [fecha, hora, superm, user] = ticketId.split('_');
+
+                const response = await fetch(UPDATE_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update_status',
+                        ticket_id: ticketId,
+                        date: fecha,
+                        time: hora, // Enviamos también la hora
+                        supermarket: superm,
+                        user: user,
+                        status: isPaid ? 'COBRADO' : 'PENDIENTE'
+                    })
+                });
+
+                if (response.ok) {
+                    showToast("Guardado en servidor", "green");
+                } else {
+                    console.warn("El servidor no respondió OK, pero el cambio local persiste.");
+                    showToast("Guardado localmente", "orange");
+                }
+            } catch (error) {
+                console.warn("No se pudo conectar al webhook de actualización", error);
+                showToast("Error de conexión (Guardado solo local)", "orange");
+            }
+        }
+
+        function exportToCSV() {
+            if (!allData.length) return alert("No hay datos para exportar");
+
+            // Preparar datos con la marca de cobrado usando el nuevo formato de clave
+            const exportData = allData.map(item => {
+                const key = `${item.Fecha}_${item.Hora}_${item.Supermercado}_${item.Usuario}`;
+                const isPaid = paidTickets.has(key) ? "COBRADO" : "PENDIENTE";
+                return {
+                    ...item,
+                    Estado_Cobro: isPaid
+                };
+            });
+
+            // Convertir a CSV
+            const headers = Object.keys(exportData[0]);
+            const csvRows = [
+                headers.join(','), // Cabecera
+                ...exportData.map(row => headers.map(fieldName => {
+                    let val = row[fieldName];
+                    // Escapar comillas y convertir a string
+                    return `"${String(val).replace(/"/g, '""')}"`;
+                }).join(','))
+            ];
+
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `tickets_export_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         function renderTable() {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
             
-            // AGRUPAR DATOS ANTES DE PAGINAR
             const groupedData = groupTickets(filteredData);
-
             const start = (currentPage - 1) * rowsPerPage;
             const end = start + rowsPerPage;
             const pageData = groupedData.slice(start, end);
@@ -781,8 +918,9 @@
             }
 
             pageData.forEach(row => {
+                const isPaid = paidTickets.has(row.id);
                 const tr = document.createElement('tr');
-                tr.className = "bg-white border-b hover:bg-gray-50 transition table-row-hover";
+                tr.className = `bg-white border-b hover:bg-gray-50 transition table-row-hover ${isPaid ? 'row-paid opacity-75' : ''}`;
                 
                 let catColor = "bg-gray-100 text-gray-800";
                 if(row.Categoria === 'Alimentación') catColor = "bg-green-100 text-green-800";
@@ -797,6 +935,12 @@
                     <td class="px-6 py-4 hidden sm:table-cell"><span class="${catColor} text-xs font-medium mr-2 px-2.5 py-0.5 rounded">${row.Categoria}</span></td>
                     <td class="px-6 py-4 hidden sm:table-cell text-gray-500">${row.Usuario}</td>
                     <td class="px-6 py-4 text-right font-bold">${parseFloat(row.Total).toFixed(2)} €</td>
+                    <td class="px-6 py-4 text-center">
+                        <input type="checkbox" 
+                               class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                               ${isPaid ? 'checked' : ''}
+                               onclick="togglePaid('${row.id}')">
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
