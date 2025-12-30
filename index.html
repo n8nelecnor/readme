@@ -236,7 +236,10 @@
             </div>
             <div class="flex-1 overflow-y-auto p-4 custom-scroll space-y-3" id="sidebar-content"></div>
             <div class="p-4 border-t border-gray-100 bg-gray-50 shrink-0 text-center">
-                <p class="text-xs text-gray-400">Mostrando datos filtrados por el último mes de actividad</p>
+                <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+                    <span class="text-xs font-black text-slate-400 uppercase tracking-widest">Total Grupo</span>
+                    <span class="text-xl font-black text-blue-600" id="sidebar-total-sum">0.00 €</span>
+                </div>
             </div>
         </div>
 
@@ -341,25 +344,25 @@
                     <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
                         <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-emerald-600"><i class="fas fa-arrow-trend-up fa-2x md:fa-3x"></i></div>
                         <p class="text-gray-500 text-xs md:text-sm font-medium">Ingreso Mes Anterior</p>
-                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-income-prev">0.00 €</h3>
+                        <h3 class="text-lg md:text-2xl font-bold text-emerald-600 mt-1 truncate" id="kpi-income-prev">0.00 €</h3>
                     </div>
                     <!-- Card 2: Gasto Mes Anterior -->
                     <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
                         <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-red-600"><i class="fas fa-arrow-trend-down fa-2x md:fa-3x"></i></div>
                         <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Anterior</p>
-                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-expense-prev">0.00 €</h3>
+                        <h3 class="text-lg md:text-2xl font-bold text-red-600 mt-1 truncate" id="kpi-expense-prev">0.00 €</h3>
                     </div>
                     <!-- Card 3: Ingreso Mes Actual -->
                     <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
                         <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-emerald-600"><i class="fas fa-hand-holding-dollar fa-2x md:fa-3x"></i></div>
                         <p class="text-gray-500 text-xs md:text-sm font-medium">Ingreso Mes Actual</p>
-                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1" id="kpi-income-current">0.00 €</h3>
+                        <h3 class="text-lg md:text-2xl font-bold text-emerald-600 mt-1" id="kpi-income-current">0.00 €</h3>
                     </div>
                     <!-- Card 4: Gasto Mes Actual -->
                     <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
                         <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-red-600"><i class="fas fa-money-bill-wave fa-2x md:fa-3x"></i></div>
                         <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Actual</p>
-                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1" id="kpi-expense-current">0.00 €</h3>
+                        <h3 class="text-lg md:text-2xl font-bold text-red-600 mt-1" id="kpi-expense-current">0.00 €</h3>
                     </div>
                 </div>
 
@@ -605,6 +608,24 @@
                         const data = (json.contents && proxy.includes('allorigins')) ? JSON.parse(json.contents) : json;
                         if (Array.isArray(data) && data.length > 0) {
                             tableRawData = processData(data);
+                            
+                            // --- SINCRONIZACIÓN DE ESTADO DE COBRO (NUEVO) ---
+                            // Actualizamos el Set local 'paidTickets' basándonos en los datos del servidor
+                            tableRawData.forEach(item => {
+                                const key = `${item.Fecha}_${item.Hora}_${item.Supermercado}_${item.Usuario}`;
+                                const estado = String(item.Cobrado || "").toUpperCase().trim();
+                                
+                                if (estado === 'COBRADO') {
+                                    paidTickets.add(key);
+                                } else {
+                                    // Si es PENDIENTE o vacío, aseguramos que NO esté marcado
+                                    paidTickets.delete(key);
+                                }
+                            });
+                            // Persistimos el estado sincronizado
+                            localStorage.setItem('paid_tickets', JSON.stringify([...paidTickets]));
+                            // -------------------------------------------------
+
                             tableSuccess = true;
                             break;
                         }
@@ -643,7 +664,8 @@
                     Categoria: String(item.Categoria || "Otros"),
                     Usuario: item.Usuario || "Desconocido",
                     PrecioUnitario: precioUnitario,
-                    Descuento: parseFloat(item.Descuento) || 0
+                    Descuento: parseFloat(item.Descuento) || 0,
+                    Cobrado: item.Cobrado // Guardamos el campo original para referencia si hiciera falta
                 };
             });
         }
@@ -807,7 +829,7 @@
             const currSums = calculateSums(currentMonthData);
             const prevSums = calculateSums(prevMonthData);
 
-            // Actualizar DOM
+            // Actualizar DOM (CON COLORES SEMÁNTICOS)
             document.getElementById('kpi-income-prev').innerText = prevSums.income.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
             document.getElementById('kpi-expense-prev').innerText = prevSums.expense.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
             
@@ -860,6 +882,71 @@
                     Total: g.Total
                 };
             });
+        }
+
+        // --- SIDEBAR DETALLES ---
+        function openSidebar(title, filterKey, filterValue) {
+            const sidebar = document.getElementById('details-sidebar');
+            const overlay = document.getElementById('details-overlay');
+            const content = document.getElementById('sidebar-content');
+            
+            document.getElementById('sidebar-title').innerText = filterValue;
+            
+            const dates = allData.map(d => new Date(d.Fecha));
+            const maxDate = new Date(Math.max.apply(null, dates));
+            const minDate = new Date(maxDate);
+            minDate.setDate(minDate.getDate() - 30); 
+
+            const detailsData = allData.filter(d => {
+                const dDate = new Date(d.Fecha);
+                return d[filterKey] === filterValue && dDate >= minDate;
+            });
+            
+            detailsData.sort((a,b) => new Date(b.Fecha) - new Date(a.Fecha));
+
+            document.getElementById('sidebar-subtitle').innerText = `Del ${minDate.toLocaleDateString()} al ${maxDate.toLocaleDateString()}`;
+            document.getElementById('sidebar-count').innerText = `${detailsData.length} tickets`;
+
+            content.innerHTML = '';
+            if(detailsData.length === 0) {
+                content.innerHTML = '<div class="text-center text-gray-400 mt-10"><i class="fas fa-inbox fa-2x mb-2"></i><br>Sin movimientos recientes</div>';
+            } else {
+                detailsData.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = "bg-white p-3 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow";
+                    el.innerHTML = `
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="font-bold text-gray-800 text-sm truncate w-3/4">${item.Articulo}</span>
+                            <span class="font-bold text-blue-600 text-sm">${item.Total.toFixed(2)}€</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs text-gray-500">
+                            <span><i class="far fa-calendar mr-1"></i>${item.Fecha}</span>
+                            <span class="bg-gray-100 px-2 py-0.5 rounded text-gray-600 truncate max-w-[100px]">${item.Supermercado}</span>
+                        </div>
+                    `;
+                    content.appendChild(el);
+                });
+            }
+
+            // CALCULAR TOTAL DEL SIDEBAR CON COLOR SEMÁNTICO
+            const totalSum = detailsData.reduce((a,b) => a+b.Total, 0);
+            const sumColor = totalSum < 0 ? 'text-emerald-600' : 'text-red-600';
+            const sumEl = document.getElementById('sidebar-total-sum');
+            sumEl.innerText = totalSum.toFixed(2) + " €";
+            // Reset y aplicar color
+            sumEl.className = `text-xl font-black ${sumColor}`;
+
+            overlay.classList.remove('hidden');
+            setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            sidebar.classList.remove('translate-x-full');
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('details-sidebar');
+            const overlay = document.getElementById('details-overlay');
+            sidebar.classList.add('translate-x-full');
+            overlay.classList.add('opacity-0');
+            setTimeout(() => overlay.classList.add('hidden'), 300);
         }
 
         // --- ACTUALIZACIÓN DE ESTADO CON NUEVA ESTRUCTURA ---
@@ -952,6 +1039,69 @@
             const end = start + rowsPerPage;
             const pageData = groupedData.slice(start, end);
 
+            // Función para generar color consistente basado en texto
+            const getCategoryStyle = (category) => {
+                const normalizedCat = String(category).toUpperCase().trim();
+                
+                // Mapeo específico solicitado y comunes
+                const specificMap = {
+                    'ROPA Y COMPLEMENTOS': 'bg-green-100 text-green-800 border-green-200', // Solicitado: Verde
+                    'CAFETERÍAS Y RESTAURANTES': 'bg-blue-100 text-blue-800 border-blue-200', // Solicitado: Azul
+                    'ALIMENTACIÓN': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                    'SUPERMERCADO': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                    'GASOLINA': 'bg-red-100 text-red-800 border-red-200',
+                    'COMBUSTIBLE': 'bg-red-100 text-red-800 border-red-200',
+                    'FARMACIA': 'bg-teal-100 text-teal-800 border-teal-200',
+                    'SALUD': 'bg-teal-100 text-teal-800 border-teal-200',
+                    'HOGAR': 'bg-orange-100 text-orange-800 border-orange-200',
+                    'MANTENIMIENTO': 'bg-gray-100 text-gray-800 border-gray-200',
+                    'OCIO': 'bg-purple-100 text-purple-800 border-purple-200',
+                    'VIAJES': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                    'EDUCACIÓN': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                    'REGALOS': 'bg-pink-100 text-pink-800 border-pink-200',
+                    'BAZAR': 'bg-amber-100 text-amber-800 border-amber-200'
+                };
+
+                // Búsqueda exacta
+                if (specificMap[normalizedCat]) return specificMap[normalizedCat];
+
+                // Búsqueda parcial si no hay exacta
+                for (const key in specificMap) {
+                    if (normalizedCat.includes(key)) return specificMap[key];
+                }
+
+                // Si no está en la lista, generamos uno basado en el hash del string
+                const colors = [
+                    'bg-slate-100 text-slate-800 border-slate-200',
+                    'bg-zinc-100 text-zinc-800 border-zinc-200',
+                    'bg-stone-100 text-stone-800 border-stone-200',
+                    'bg-red-100 text-red-800 border-red-200',
+                    'bg-orange-100 text-orange-800 border-orange-200',
+                    'bg-amber-100 text-amber-800 border-amber-200',
+                    'bg-yellow-100 text-yellow-800 border-yellow-200',
+                    'bg-lime-100 text-lime-800 border-lime-200',
+                    'bg-green-100 text-green-800 border-green-200',
+                    'bg-emerald-100 text-emerald-800 border-emerald-200',
+                    'bg-teal-100 text-teal-800 border-teal-200',
+                    'bg-cyan-100 text-cyan-800 border-cyan-200',
+                    'bg-sky-100 text-sky-800 border-sky-200',
+                    'bg-blue-100 text-blue-800 border-blue-200',
+                    'bg-indigo-100 text-indigo-800 border-indigo-200',
+                    'bg-violet-100 text-violet-800 border-violet-200',
+                    'bg-purple-100 text-purple-800 border-purple-200',
+                    'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200',
+                    'bg-pink-100 text-pink-800 border-pink-200',
+                    'bg-rose-100 text-rose-800 border-rose-200'
+                ];
+                
+                let hash = 0;
+                for (let i = 0; i < normalizedCat.length; i++) {
+                    hash = normalizedCat.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                const index = Math.abs(hash) % colors.length;
+                return colors[index];
+            };
+
             if (pageData.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-400">No se encontraron datos</td></tr>';
                 document.getElementById('pagination-info').innerText = '0 de 0';
@@ -963,17 +1113,22 @@
                 const tr = document.createElement('tr');
                 tr.className = `bg-white border-b hover:bg-gray-50 transition table-row-hover ${isPaid ? 'row-paid opacity-75' : ''}`;
                 
-                let catColor = "bg-gray-100 text-gray-800";
-                if(row.Categoria === 'Alimentación') catColor = "bg-green-100 text-green-800";
-                else if(row.Categoria === 'Gasolina') catColor = "bg-red-100 text-red-800";
-                else if(row.Categoria === 'Compra Mixta') catColor = "bg-purple-100 text-purple-800";
-                else if(row.Categoria.includes('Limpieza')) catColor = "bg-blue-100 text-blue-800";
+                // Determinar el estilo de la categoría dinámicamente
+                let catClass = getCategoryStyle(row.Categoria);
+
+                // Determinar color del TOTAL (Ingreso vs Gasto)
+                const totalVal = parseFloat(row.Total);
+                const moneyColor = totalVal < 0 ? 'text-emerald-600' : 'text-red-600';
 
                 tr.innerHTML = `
                     <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${row.Fecha}</td>
                     <td class="px-6 py-4">${row.Supermercado}</td>
-                    <td class="px-6 py-4 hidden sm:table-cell"><span class="${catColor} text-xs font-medium mr-2 px-2.5 py-0.5 rounded">${row.Categoria}</span></td>
-                    <td class="px-6 py-4 text-right font-bold">${parseFloat(row.Total).toFixed(2)} €</td>
+                    <td class="px-6 py-4 hidden sm:table-cell">
+                        <span class="${catClass} border text-[10px] font-bold mr-2 px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm whitespace-nowrap">
+                            ${row.Categoria}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right font-bold ${moneyColor}">${totalVal.toFixed(2)} €</td>
                     <td class="px-6 py-4 text-center">
                         <input type="checkbox" 
                                class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
@@ -1293,28 +1448,47 @@
                 }
             });
 
+            // DEFINICIÓN DE COLORES POR CATEGORÍA
+            const CATEGORY_COLORS = {
+                'Alimentación': '#10b981', // Emerald
+                'Supermercado': '#10b981', // Emerald (Alias)
+                'Gasolina': '#ef4444',     // Red
+                'Combustible': '#ef4444',  // Red (Alias)
+                'Higiene': '#3b82f6',      // Blue
+                'Limpieza': '#06b6d4',     // Cyan
+                'Bazar': '#f59e0b',        // Amber
+                'Mascotas': '#f97316',     // Orange
+                'Ropa': '#ec4899',         // Pink
+                'Ocio': '#8b5cf6',         // Violet
+                'Farmacia': '#14b8a6',     // Teal
+                'Electrónica': '#6366f1',  // Indigo
+                'Hogar': '#84cc16',        // Lime
+                'Otros': '#94a3b8'         // Slate
+            };
+            
+            const DEFAULT_PALETTE = [
+                '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', 
+                '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1'
+            ];
+
+            function getColorForCategory(category) {
+                return CATEGORY_COLORS[category] || DEFAULT_PALETTE[Math.abs(category.length) % DEFAULT_PALETTE.length];
+            }
+
             // Pie Chart
             if (charts.category) charts.category.destroy();
+            
+            const catLabels = Object.keys(catData);
+            const catValues = Object.values(catData);
+            const catColors = catLabels.map((cat, i) => CATEGORY_COLORS[cat] || DEFAULT_PALETTE[i % DEFAULT_PALETTE.length]); // Map colors dynamically
+
             charts.category = new Chart(document.getElementById('categoryChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(catData),
+                    labels: catLabels,
                     datasets: [{
-                        data: Object.values(catData),
-                        backgroundColor: [
-                            '#3b82f6', // Blue 500
-                            '#ef4444', // Red 500
-                            '#10b981', // Emerald 500
-                            '#f59e0b', // Amber 500
-                            '#8b5cf6', // Violet 500
-                            '#ec4899', // Pink 500
-                            '#06b6d4', // Cyan 500
-                            '#f97316', // Orange 500
-                            '#84cc16', // Lime 500
-                            '#6366f1', // Indigo 500
-                            '#14b8a6', // Teal 500
-                            '#d946ef'  // Fuchsia 500
-                        ],
+                        data: catValues,
+                        backgroundColor: catColors, // Use mapped colors
                         borderWidth: 0
                     }]
                 },
