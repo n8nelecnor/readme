@@ -116,53 +116,47 @@
     </div>
 
     <!-- MODAL COMPARADOR DE PRECIOS -->
-    <div id="comparator-modal" class="fixed inset-0 z-[70] hidden">
-        <div class="absolute inset-0 bg-black bg-opacity-50 transition-opacity" onclick="closeComparator()"></div>
-        <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col pointer-events-auto transform transition-all scale-100">
-                <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-tags text-blue-600 mr-2"></i>Comparador de Precios</h3>
-                        <p class="text-sm text-gray-500">Compara el precio unitario entre supermercados (Últimos 30 días)</p>
+    <div id="comparator-modal" class="fixed inset-0 z-[1100] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onclick="closeComparator()"></div>
+        <div class="bg-white rounded-[40px] shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col relative overflow-hidden animate-slide-in">
+            <!-- Header -->
+            <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-100">
+                        <i class="fas fa-tags text-xl"></i>
                     </div>
-                    <button onclick="closeComparator()" class="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-200 transition">
-                        <i class="fas fa-times fa-lg"></i>
-                    </button>
+                    <div>
+                        <h3 class="text-2xl font-black text-slate-800 tracking-tight">Comparador de Precios</h3>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Análisis de los últimos 30 días</p>
+                    </div>
+                </div>
+                <button onclick="closeComparator()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 transition">
+                    <i class="fas fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <!-- Body -->
+            <div class="p-8 flex-1 flex flex-col overflow-hidden space-y-8">
+                <div class="relative">
+                    <input type="text" id="comparator-search" placeholder="¿Qué producto quieres comparar? (Ej: Leche, Tomate...)" class="w-full pl-14 pr-6 py-5 bg-slate-100 border-none rounded-3xl text-lg font-medium focus:ring-4 focus:ring-blue-100 outline-none transition-all shadow-inner" onkeyup="handleComparatorSearch(event)">
+                    <i class="fas fa-search absolute left-6 top-6 text-slate-400 text-xl"></i>
+                </div>
+
+                <div id="comparator-results" class="flex-1 flex flex-col lg:flex-row gap-8 overflow-hidden hidden">
+                    <div class="flex-1 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative h-full">
+                        <canvas id="comparatorChart"></canvas>
+                    </div>
+                    <div class="w-full lg:w-96 overflow-y-auto custom-scroll pr-2 space-y-3" id="comparator-list">
+                        <!-- Items comparativa -->
+                    </div>
                 </div>
                 
-                <div class="p-6 flex-1 flex flex-col overflow-hidden">
-                    <div class="relative mb-6">
-                        <input type="text" id="comparator-search" placeholder="Escribe un producto (ej: Tomate, Leche...)" 
-                               class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-lg shadow-sm"
-                               onkeyup="handleComparatorSearch(event)">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
-                            <i class="fas fa-search fa-lg"></i>
-                        </div>
+                <div id="comparator-empty" class="flex-1 flex flex-col items-center justify-center text-center">
+                    <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                        <i class="fas fa-basket-shopping text-4xl text-slate-200"></i>
                     </div>
-
-                    <div id="comparator-results" class="flex-1 flex flex-col overflow-hidden hidden">
-                        <div class="h-64 mb-6 relative">
-                            <canvas id="comparatorChart"></canvas>
-                        </div>
-                        <div class="flex-1 overflow-y-auto custom-scroll border-t border-gray-100 pt-4">
-                            <table class="w-full text-sm text-left text-gray-600">
-                                <thead class="text-xs text-gray-500 uppercase bg-gray-50 sticky top-0">
-                                    <tr>
-                                        <th class="px-4 py-2">Supermercado</th>
-                                        <th class="px-4 py-2 text-right">Precio Medio</th>
-                                        <th class="px-4 py-2 text-right">Último Precio</th>
-                                        <th class="px-4 py-2 text-right">Fecha</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="comparator-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <div id="comparator-empty" class="flex-1 flex flex-col items-center justify-center text-gray-400">
-                        <i class="fas fa-basket-shopping fa-4x mb-4 text-gray-200"></i>
-                        <p>Busca un producto para comparar precios</p>
-                    </div>
+                    <h4 class="text-xl font-black text-slate-400">Sin búsquedas activas</h4>
+                    <p class="text-slate-300 text-sm mt-2 max-w-xs">Introduce el nombre de un producto para comparar precios entre supermercados</p>
                 </div>
             </div>
         </div>
@@ -343,27 +337,29 @@
             <div class="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
                 <!-- KPI Cards -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
-                    <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition">
-                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-blue-600"><i class="fas fa-euro-sign fa-2x md:fa-3x"></i></div>
-                        <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Total</p>
-                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-total">0.00 €</h3>
-                        <p class="text-[10px] md:text-xs text-green-500 mt-1 md:mt-2 font-semibold"><i class="fas fa-arrow-up"></i> Acumulado</p>
-                    </div>
+                    <!-- Card 1: Ingreso Mes Anterior -->
                     <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
-                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-purple-600"><i class="fas fa-calendar-check fa-2x md:fa-3x"></i></div>
-                        <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Actual</p>
-                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1" id="kpi-month-current">0.00 €</h3>
+                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-emerald-600"><i class="fas fa-arrow-trend-up fa-2x md:fa-3x"></i></div>
+                        <p class="text-gray-500 text-xs md:text-sm font-medium">Ingreso Mes Anterior</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-income-prev">0.00 €</h3>
                     </div>
+                    <!-- Card 2: Gasto Mes Anterior -->
                     <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
-                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-orange-600"><i class="fas fa-history fa-2x md:fa-3x"></i></div>
+                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-red-600"><i class="fas fa-arrow-trend-down fa-2x md:fa-3x"></i></div>
                         <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Anterior</p>
-                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-month-prev">0.00 €</h3>
+                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1 truncate" id="kpi-expense-prev">0.00 €</h3>
                     </div>
+                    <!-- Card 3: Ingreso Mes Actual -->
                     <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
-                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-green-600"><i class="fas fa-calendar-alt fa-2x md:fa-3x"></i></div>
-                        <p class="text-gray-500 text-xs md:text-sm font-medium">Última Compra</p>
-                        <h3 class="text-sm md:text-lg font-bold text-gray-800 mt-1 truncate" id="kpi-last-date">-</h3>
-                        <p class="text-[10px] md:text-xs text-gray-400 mt-1 truncate" id="kpi-last-vendor">-</p>
+                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-emerald-600"><i class="fas fa-hand-holding-dollar fa-2x md:fa-3x"></i></div>
+                        <p class="text-gray-500 text-xs md:text-sm font-medium">Ingreso Mes Actual</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1" id="kpi-income-current">0.00 €</h3>
+                    </div>
+                    <!-- Card 4: Gasto Mes Actual -->
+                    <div class="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden hover:shadow-md transition">
+                        <div class="absolute right-0 top-0 p-3 md:p-4 opacity-10 text-red-600"><i class="fas fa-money-bill-wave fa-2x md:fa-3x"></i></div>
+                        <p class="text-gray-500 text-xs md:text-sm font-medium">Gasto Mes Actual</p>
+                        <h3 class="text-lg md:text-2xl font-bold text-gray-800 mt-1" id="kpi-expense-current">0.00 €</h3>
                     </div>
                 </div>
 
@@ -371,7 +367,7 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-gray-700 font-bold text-sm md:text-base">Gasto por Supermercado</h3>
+                            <h3 class="text-gray-700 font-bold text-sm md:text-base uppercase">SUPERMERCADO</h3>
                             <span class="text-[10px] md:text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded-full cursor-help flex items-center"><i class="fas fa-mouse-pointer mr-1"></i> <span class="hidden md:inline">Interactivo</span></span>
                         </div>
                         <div class="h-56 md:h-64">
@@ -380,7 +376,7 @@
                     </div>
                     <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-gray-700 font-bold text-sm md:text-base">Distribución por Categoría</h3>
+                            <h3 class="text-gray-700 font-bold text-sm md:text-base uppercase">CATEGORIAS</h3>
                             <span class="text-[10px] md:text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded-full cursor-help flex items-center"><i class="fas fa-mouse-pointer mr-1"></i> <span class="hidden md:inline">Interactivo</span></span>
                         </div>
                         <div class="h-56 md:h-64 flex justify-center">
@@ -419,9 +415,7 @@
                                 <tr>
                                     <th class="px-6 py-3" onclick="sortTable('Fecha')">Fecha <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                                     <th class="px-6 py-3" onclick="sortTable('Supermercado')">Super <i class="fas fa-sort text-gray-300 ml-1"></i></th>
-                                    <th class="px-6 py-3 hidden md:table-cell" onclick="sortTable('Articulo')">Detalle / Ítems <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                                     <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Categoria')">Cat. <i class="fas fa-sort text-gray-300 ml-1"></i></th>
-                                    <th class="px-6 py-3 hidden sm:table-cell" onclick="sortTable('Usuario')">Usuario <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                                     <th class="px-6 py-3 text-right" onclick="sortTable('Total')">Total <i class="fas fa-sort text-gray-300 ml-1"></i></th>
                                     <th class="px-6 py-3 text-center">Cobrado</th>
                                 </tr>
@@ -450,10 +444,11 @@
         // CONFIGURACIÓN DE URLS - AQUÍ DEBES PONER TUS URLS REALES
         const WEBHOOK_URL = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/64dbf343-08e3-4a0b-8c8f-cd87c1554115';
         const CHAT_WEBHOOK = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/849d797e-7a0a-41df-9751-14166ad02a75';
-        
-        // URL ACTUALIZADA A PRODUCCIÓN
         const UPDATE_WEBHOOK_URL = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/UPDATE_TICKET_STATUS'; 
         
+        // --- NUEVA URL PARA TABLA ---
+        const TABLE_WEBHOOK_URL = 'https://automatizaciones-n8n.ztzbzz.easypanel.host/webhook/653d11e8-ccde-43e6-a286-874b505f0391';
+
         // --- LOGICA DE PROXIES PARA CHAT ---
         const PROXIES = [
             "", // Intento directo
@@ -539,8 +534,12 @@
         checkSession();
 
         // --- LOGICA DEL CRM ---
-        let allData = [];
-        let filteredData = [];
+        let allData = []; // Datos para gráficos (Webhook original)
+        let filteredData = []; // Datos filtrados para gráficos
+        
+        let tableRawData = []; // NUEVO: Datos para la tabla (Nuevo Webhook)
+        let filteredTableData = []; // NUEVO: Datos filtrados para la tabla
+
         let currentPage = 1;
         const rowsPerPage = 10;
         let sortCol = 'Fecha';
@@ -570,36 +569,52 @@
             const loader = document.getElementById('loader');
             if (loader) loader.style.display = 'flex';
 
-            // Usar proxy para datos también
+            // 1. CARGAR DATOS GENERALES (Gráficos)
             let success = false;
             for (const proxy of PROXIES) {
                 try {
                     const target = proxy + encodeURIComponent(WEBHOOK_URL);
-                    const url = proxy === "" ? WEBHOOK_URL : target; // Directo si proxy es vacío
-                    
+                    const url = proxy === "" ? WEBHOOK_URL : target;
                     const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
-                    
                     if (response.ok) {
                         const json = await response.json();
                         const data = (json.contents && proxy.includes('allorigins')) ? JSON.parse(json.contents) : json;
-                        
                         if (Array.isArray(data) && data.length > 0) {
                             allData = processData(data);
                             success = true;
                             break;
                         }
                     }
-                } catch (e) {
-                    console.log(`Intento fallido con ${proxy || "Directo"}:`, e);
-                }
+                } catch (e) { console.log("Chart fetch error", e); }
             }
 
             if (!success) {
-                console.warn("Fallo total de conexión:", "Usando Demo");
+                console.warn("Fallo conexión gráficos:", "Usando Demo");
                 allData = generateDemoData();
-                const loaderText = document.getElementById('loader-text');
-                if (loaderText) loaderText.innerText = "Cargando Demo (Offline)...";
-                await new Promise(r => setTimeout(r, 500));
+            }
+
+            // 2. CARGAR DATOS TABLA (Nuevo Webhook)
+            let tableSuccess = false;
+            for (const proxy of PROXIES) {
+                try {
+                    const target = proxy + encodeURIComponent(TABLE_WEBHOOK_URL);
+                    const url = proxy === "" ? TABLE_WEBHOOK_URL : target;
+                    const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
+                    if (response.ok) {
+                        const json = await response.json();
+                        const data = (json.contents && proxy.includes('allorigins')) ? JSON.parse(json.contents) : json;
+                        if (Array.isArray(data) && data.length > 0) {
+                            tableRawData = processData(data);
+                            tableSuccess = true;
+                            break;
+                        }
+                    }
+                } catch (e) { console.log("Table fetch error", e); }
+            }
+
+            if (!tableSuccess) {
+                console.warn("Fallo conexión tabla");
+                tableRawData = []; // O fallback a demo si se prefiere
             }
 
             populateFilters();
@@ -616,16 +631,16 @@
                 const precioUnitario = rawPrecio > 0 ? rawPrecio : (qty > 0 ? rawTotal / qty : 0);
 
                 return {
-                    Supermercado: item.Supermercado || "Desconocido",
+                    Supermercado: String(item.Supermercado || "Desconocido"),
                     Direccion: item.Direccion || "",
                     Poblacion: item.Poblacion || "General",
                     Fecha: item.Fecha || new Date().toISOString().split('T')[0],
                     // AÑADIDO: Campo Hora
                     Hora: item.Hora || "00:00:00",
-                    Articulo: item.Articulo || "Producto Vario",
+                    Articulo: String(item.Articulo || "Producto Vario"),
                     CantidadPeso: qty,
                     Total: rawTotal,
-                    Categoria: item.Categoria || "Otros",
+                    Categoria: String(item.Categoria || "Otros"),
                     Usuario: item.Usuario || "Desconocido",
                     PrecioUnitario: precioUnitario,
                     Descuento: parseFloat(item.Descuento) || 0
@@ -666,9 +681,12 @@
         }
 
         function populateFilters() {
-            const vendors = [...new Set(allData.map(d => d.Supermercado))].sort();
-            const cats = [...new Set(allData.map(d => d.Categoria))].sort();
-            const users = [...new Set(allData.map(d => d.Usuario))].sort();
+            // Combinar datos para que los filtros funcionen en ambas fuentes
+            const combinedData = [...allData, ...tableRawData];
+            
+            const vendors = [...new Set(combinedData.map(d => d.Supermercado))].sort();
+            const cats = [...new Set(combinedData.map(d => d.Categoria))].sort();
+            const users = [...new Set(combinedData.map(d => d.Usuario))].sort();
 
             const updateSel = (id, arr) => {
                 const el = document.getElementById(id);
@@ -695,17 +713,27 @@
             const dateEnd = document.getElementById('filter-date-end').value;
             const search = document.getElementById('search-input').value.toLowerCase();
 
-            filteredData = allData.filter(item => {
+            // Función de filtrado genérica
+            const filterFn = (item) => {
                 const matchVendor = !vendorFilter || item.Supermercado === vendorFilter;
                 const matchCat = !catFilter || item.Categoria === catFilter;
                 const matchUser = !userFilter || item.Usuario === userFilter;
                 const matchDateStart = !dateStart || item.Fecha >= dateStart;
                 const matchDateEnd = !dateEnd || item.Fecha <= dateEnd;
-                const matchSearch = !search || item.Articulo.toLowerCase().includes(search) || item.Supermercado.toLowerCase().includes(search);
+                const art = String(item.Articulo).toLowerCase();
+                const sup = String(item.Supermercado).toLowerCase();
+                const matchSearch = !search || art.includes(search) || sup.includes(search);
                 return matchVendor && matchCat && matchUser && matchDateStart && matchDateEnd && matchSearch;
-            });
+            };
 
-            filteredData.sort((a, b) => {
+            // Filtrar GRÁFICOS (Fuente original)
+            filteredData = allData.filter(filterFn);
+
+            // Filtrar TABLA (Fuente nueva)
+            filteredTableData = tableRawData.filter(filterFn);
+
+            // Ordenar Tabla
+            filteredTableData.sort((a, b) => {
                 let valA = a[sortCol];
                 let valB = b[sortCol];
                 if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
@@ -715,9 +743,9 @@
             });
 
             currentPage = 1;
-            updateDashboard();
-            renderTable();
-            renderCharts();
+            updateDashboard(); // Usa filteredData (Charts)
+            renderTable();     // Usa filteredTableData (Tabla)
+            renderCharts();    // Usa filteredData (Charts)
         }
 
         function resetFilters() {
@@ -732,10 +760,11 @@
             applyFilters();
         }
         function prevPage() { if(currentPage > 1) { currentPage--; renderTable(); } }
-        function nextPage() { if((currentPage * rowsPerPage) < filteredData.length) { currentPage++; renderTable(); } }
+        function nextPage() { if((currentPage * rowsPerPage) < filteredTableData.length) { currentPage++; renderTable(); } }
 
         function updateDashboard() {
-            const total = filteredData.reduce((acc, curr) => acc + curr.Total, 0);
+            // KPIs usan datos de GRÁFICOS (filteredData)
+            // Lógica para separar Ingresos (negativos) y Gastos (positivos)
             
             const vendorFilter = document.getElementById('filter-supermarket').value;
             const catFilter = document.getElementById('filter-category').value;
@@ -752,28 +781,38 @@
             const prevDate = new Date(); prevDate.setMonth(prevDate.getMonth() - 1);
             const prevMonth = prevDate.getMonth(), prevYear = prevDate.getFullYear();
 
-            const currentTotal = contextualData.reduce((acc, curr) => {
-                const d = new Date(curr.Fecha);
-                return (d.getMonth() === currMonth && d.getFullYear() === currYear) ? acc + curr.Total : acc;
-            }, 0);
+            // Función auxiliar para sumar ingresos y gastos
+            const calculateSums = (data) => {
+                return data.reduce((acc, curr) => {
+                    if (curr.Total < 0) {
+                        acc.income += Math.abs(curr.Total); // Sumar como positivo
+                    } else {
+                        acc.expense += curr.Total;
+                    }
+                    return acc;
+                }, { income: 0, expense: 0 });
+            };
 
-            const prevTotal = contextualData.reduce((acc, curr) => {
-                const d = new Date(curr.Fecha);
-                return (d.getMonth() === prevMonth && d.getFullYear() === prevYear) ? acc + curr.Total : acc;
-            }, 0);
+            // Filtrar datos por mes
+            const currentMonthData = contextualData.filter(item => {
+                const d = new Date(item.Fecha);
+                return d.getMonth() === currMonth && d.getFullYear() === currYear;
+            });
 
-            document.getElementById('kpi-total').innerText = total.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
-            document.getElementById('kpi-month-current').innerText = currentTotal.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
-            document.getElementById('kpi-month-prev').innerText = prevTotal.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+            const prevMonthData = contextualData.filter(item => {
+                const d = new Date(item.Fecha);
+                return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+            });
 
-            if (filteredData.length > 0) {
-                const last = filteredData[0];
-                document.getElementById('kpi-last-date').innerText = new Date(last.Fecha).toLocaleDateString('es-ES');
-                document.getElementById('kpi-last-vendor').innerText = last.Supermercado;
-            } else {
-                document.getElementById('kpi-last-date').innerText = "-";
-                document.getElementById('kpi-last-vendor').innerText = "-";
-            }
+            const currSums = calculateSums(currentMonthData);
+            const prevSums = calculateSums(prevMonthData);
+
+            // Actualizar DOM
+            document.getElementById('kpi-income-prev').innerText = prevSums.income.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+            document.getElementById('kpi-expense-prev').innerText = prevSums.expense.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+            
+            document.getElementById('kpi-income-current').innerText = currSums.income.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+            document.getElementById('kpi-expense-current').innerText = currSums.expense.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
         }
 
         // --- FUNCIÓN DE AGRUPACIÓN ACTUALIZADA CON HORA ---
@@ -868,10 +907,11 @@
         }
 
         function exportToCSV() {
-            if (!allData.length) return alert("No hay datos para exportar");
+            // USAR filteredTableData para exportar lo que se ve en tabla
+            if (!filteredTableData.length) return alert("No hay datos para exportar");
 
             // Preparar datos con la marca de cobrado usando el nuevo formato de clave
-            const exportData = allData.map(item => {
+            const exportData = filteredTableData.map(item => {
                 const key = `${item.Fecha}_${item.Hora}_${item.Supermercado}_${item.Usuario}`;
                 const isPaid = paidTickets.has(key) ? "COBRADO" : "PENDIENTE";
                 return {
@@ -906,7 +946,8 @@
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
             
-            const groupedData = groupTickets(filteredData);
+            // Usamos filteredTableData (Datos del Nuevo Webhook)
+            const groupedData = groupTickets(filteredTableData);
             const start = (currentPage - 1) * rowsPerPage;
             const end = start + rowsPerPage;
             const pageData = groupedData.slice(start, end);
@@ -931,9 +972,7 @@
                 tr.innerHTML = `
                     <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${row.Fecha}</td>
                     <td class="px-6 py-4">${row.Supermercado}</td>
-                    <td class="px-6 py-4 truncate max-w-xs hidden md:table-cell" title="${row.Articulo}">${row.Articulo}</td>
                     <td class="px-6 py-4 hidden sm:table-cell"><span class="${catColor} text-xs font-medium mr-2 px-2.5 py-0.5 rounded">${row.Categoria}</span></td>
-                    <td class="px-6 py-4 hidden sm:table-cell text-gray-500">${row.Usuario}</td>
                     <td class="px-6 py-4 text-right font-bold">${parseFloat(row.Total).toFixed(2)} €</td>
                     <td class="px-6 py-4 text-center">
                         <input type="checkbox" 
@@ -950,7 +989,7 @@
             document.getElementById('btn-next').disabled = end >= groupedData.length;
         }
 
-        // --- COMPARADOR ---
+        // --- COMPARADOR (VERSIÓN MEJORADA) ---
         function openComparator() {
             document.getElementById('comparator-modal').classList.remove('hidden');
             document.getElementById('comparator-search').focus();
@@ -962,82 +1001,84 @@
 
         function handleComparatorSearch(e) {
             const term = e.target.value.toLowerCase();
-            const resultsContainer = document.getElementById('comparator-results');
-            const emptyContainer = document.getElementById('comparator-empty');
-            
-            if (term.length < 2) {
-                resultsContainer.classList.add('hidden');
-                emptyContainer.classList.remove('hidden');
-                return;
+            const list = document.getElementById('comparator-list');
+            const results = document.getElementById('comparator-results');
+            const empty = document.getElementById('comparator-empty');
+
+            if (term.length < 2) { 
+                results.classList.add('hidden'); 
+                empty.classList.remove('hidden'); 
+                return; 
             }
 
             const dates = allData.map(d => new Date(d.Fecha));
             const maxDate = new Date(Math.max.apply(null, dates));
             const minDate = new Date(maxDate);
-            minDate.setDate(minDate.getDate() - 30);
+            minDate.setDate(minDate.getDate() - 30); 
 
-            const matchedData = allData.filter(d => {
+            const matched = allData.filter(d => {
                 const dDate = new Date(d.Fecha);
-                return d.Articulo.toLowerCase().includes(term) && dDate >= minDate;
+                // FIX: Asegurar string antes de lowerCase
+                return String(d.Articulo || "").toLowerCase().includes(term) && dDate >= minDate;
             });
-
-            if (matchedData.length === 0) {
-                if (charts.comparator) charts.comparator.destroy();
+            
+            if (matched.length === 0) {
+                if(charts.comparator) charts.comparator.destroy();
+                list.innerHTML = "";
+                results.classList.add('hidden');
+                empty.classList.remove('hidden');
                 return;
             }
 
-            resultsContainer.classList.remove('hidden');
-            emptyContainer.classList.add('hidden');
+            results.classList.remove('hidden');
+            empty.classList.add('hidden');
 
-            const grouped = matchedData.reduce((acc, curr) => {
-                if (!acc[curr.Supermercado]) acc[curr.Supermercado] = { total: 0, count: 0, lastPrice: 0, lastDate: '' };
-                acc[curr.Supermercado].total += curr.PrecioUnitario;
-                acc[curr.Supermercado].count += 1;
-                if (!acc[curr.Supermercado].lastDate || curr.Fecha > acc[curr.Supermercado].lastDate) {
-                    acc[curr.Supermercado].lastPrice = curr.PrecioUnitario;
-                    acc[curr.Supermercado].lastDate = curr.Fecha;
-                }
+            // Ordenar por fecha descendente (más reciente primero)
+            matched.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha));
+
+            // Lógica para el gráfico (Mantenemos medias visuales para comparar)
+            const grouped = matched.reduce((acc, curr) => {
+                if(!acc[curr.Supermercado]) acc[curr.Supermercado] = [];
+                acc[curr.Supermercado].push(curr.PrecioUnitario);
                 return acc;
             }, {});
 
             const labels = Object.keys(grouped);
-            const avgPrices = labels.map(k => grouped[k].total / grouped[k].count);
+            const averages = labels.map(l => grouped[l].reduce((a,b) => a+b, 0) / grouped[l].length);
 
-            if (charts.comparator) charts.comparator.destroy();
-            const ctx = document.getElementById('comparatorChart').getContext('2d');
-            charts.comparator = new Chart(ctx, {
+            if(charts.comparator) charts.comparator.destroy();
+            charts.comparator = new Chart(document.getElementById('comparatorChart'), {
                 type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Precio Medio Unitario (€)',
-                        data: avgPrices,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 6,
-                        barThickness: 40
-                    }]
+                data: { 
+                    labels: labels, 
+                    datasets: [{ 
+                        label: 'Precio Medio', 
+                        data: averages, 
+                        backgroundColor: '#2563eb', 
+                        borderRadius: 15 
+                    }] 
                 },
-                options: {
-                    responsive: true,
+                options: { 
+                    indexAxis: 'y', // GRÁFICO HORIZONTAL
+                    responsive: true, 
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Precio (€)' } } },
                     plugins: { legend: { display: false } }
                 }
             });
 
-            const tbody = document.getElementById('comparator-table-body');
-            tbody.innerHTML = '';
-            labels.forEach((superm, i) => {
-                const tr = document.createElement('tr');
-                tr.className = "border-b border-gray-100 hover:bg-gray-50";
-                tr.innerHTML = `
-                    <td class="px-4 py-3 font-medium text-gray-800">${superm}</td>
-                    <td class="px-4 py-3 text-right text-blue-600 font-bold">${avgPrices[i].toFixed(2)} €</td>
-                    <td class="px-4 py-3 text-right text-gray-600">${grouped[superm].lastPrice.toFixed(2)} €</td>
-                    <td class="px-4 py-3 text-right text-gray-400 text-xs">${grouped[superm].lastDate}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+            // Lógica de Lista (DETALLE: Supermercado, Día, Precio)
+            list.innerHTML = matched.map(item => `
+                <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 hover:bg-white hover:shadow-md transition-all">
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${item.Supermercado}</p>
+                        <h5 class="text-sm font-bold text-slate-800"><i class="far fa-calendar-alt mr-1 text-blue-400"></i> ${item.Fecha}</h5>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-lg font-black text-blue-600">${item.PrecioUnitario.toFixed(2)} €</span>
+                        <span class="text-[10px] text-slate-400">/ unidad</span>
+                    </div>
+                </div>
+            `).join('');
         }
 
         // --- CHAT MULTI-FALLBACK ---
@@ -1260,7 +1301,20 @@
                     labels: Object.keys(catData),
                     datasets: [{
                         data: Object.values(catData),
-                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#f97316'],
+                        backgroundColor: [
+                            '#3b82f6', // Blue 500
+                            '#ef4444', // Red 500
+                            '#10b981', // Emerald 500
+                            '#f59e0b', // Amber 500
+                            '#8b5cf6', // Violet 500
+                            '#ec4899', // Pink 500
+                            '#06b6d4', // Cyan 500
+                            '#f97316', // Orange 500
+                            '#84cc16', // Lime 500
+                            '#6366f1', // Indigo 500
+                            '#14b8a6', // Teal 500
+                            '#d946ef'  // Fuchsia 500
+                        ],
                         borderWidth: 0
                     }]
                 },
