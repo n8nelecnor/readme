@@ -650,6 +650,14 @@
                 const rawTotal = parseFloat(item.Total) || 0;
                 const qty = parseFloat(item.CantidadPeso) || 1;
                 const precioUnitario = rawPrecio > 0 ? rawPrecio : (qty > 0 ? rawTotal / qty : 0);
+                
+                const rawArticulo = String(item.Articulo || "Producto Vario");
+                
+                // NUEVA LÓGICA: Artículo Normalizado (MÁS ROBUSTA)
+                // Busca el campo con variantes comunes para evitar fallos si el nombre cambia ligeramente
+                const normRaw = item['Articulo-Normalizado'] || item['articulo-normalizado'] || item['Articulo_Normalizado'];
+                
+                const articuloNormalizado = normRaw ? String(normRaw) : rawArticulo.toUpperCase();
 
                 return {
                     Supermercado: String(item.Supermercado || "Desconocido"),
@@ -658,7 +666,8 @@
                     Fecha: item.Fecha || new Date().toISOString().split('T')[0],
                     // AÑADIDO: Campo Hora
                     Hora: item.Hora || "00:00:00",
-                    Articulo: String(item.Articulo || "Producto Vario"),
+                    Articulo: rawArticulo,
+                    ArticuloNormalizado: articuloNormalizado, // CAMPO SEGURO
                     CantidadPeso: qty,
                     Total: rawTotal,
                     Categoria: String(item.Categoria || "Otros"),
@@ -678,12 +687,14 @@
             let data = [];
             for(let i=0; i<50; i++) {
                 const date = new Date();
-                date.setDate(date.getDate() - Math.floor(Math.random() * 60));
+                date.setDate(date.getDate() - Math.floor(Math.random() * 30)); // 30 días para asegurar visibilidad en comparador
                 const total = parseFloat((Math.random() * 20 + 1).toFixed(2));
                 const qty = Math.floor(Math.random() * 3) + 1;
                 
                 // AÑADIDO: Generar hora aleatoria para demos
                 const hour = String(Math.floor(Math.random() * 24)).padStart(2, '0') + ":" + String(Math.floor(Math.random() * 60)).padStart(2, '0');
+                
+                const art = products[Math.floor(Math.random()*products.length)];
 
                 data.push({
                     Supermercado: vendors[Math.floor(Math.random()*vendors.length)],
@@ -691,7 +702,8 @@
                     Poblacion: i % 2 === 0 ? 'Sevilla' : 'Dos Hermanas',
                     Fecha: date.toISOString().split('T')[0],
                     Hora: hour,
-                    Articulo: products[Math.floor(Math.random()*products.length)],
+                    Articulo: art,
+                    ArticuloNormalizado: art.toUpperCase(), // AÑADIDO MANUALMENTE PARA DEMO
                     CantidadPeso: qty,
                     Total: total,
                     PrecioUnitario: total/qty,
@@ -744,7 +756,9 @@
                 const matchDateEnd = !dateEnd || item.Fecha <= dateEnd;
                 const art = String(item.Articulo).toLowerCase();
                 const sup = String(item.Supermercado).toLowerCase();
-                const matchSearch = !search || art.includes(search) || sup.includes(search);
+                // NUEVA LÓGICA: Búsqueda en ArticuloNormalizado
+                const normArt = String(item.ArticuloNormalizado || "").toLowerCase();
+                const matchSearch = !search || art.includes(search) || sup.includes(search) || normArt.includes(search);
                 return matchVendor && matchCat && matchUser && matchDateStart && matchDateEnd && matchSearch;
             };
 
@@ -1155,7 +1169,10 @@
         }
 
         function handleComparatorSearch(e) {
-            const term = e.target.value.toLowerCase();
+            // Normalizar texto para quitar acentos y pasar a minúsculas
+            const normalize = (str) => String(str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            
+            const term = normalize(e.target.value);
             const list = document.getElementById('comparator-list');
             const results = document.getElementById('comparator-results');
             const empty = document.getElementById('comparator-empty');
@@ -1173,8 +1190,8 @@
 
             const matched = allData.filter(d => {
                 const dDate = new Date(d.Fecha);
-                // FIX: Asegurar string antes de lowerCase
-                return String(d.Articulo || "").toLowerCase().includes(term) && dDate >= minDate;
+                // Comparación insensible a acentos
+                return normalize(d.ArticuloNormalizado).includes(term) && dDate >= minDate;
             });
             
             if (matched.length === 0) {
@@ -1225,8 +1242,9 @@
             list.innerHTML = matched.map(item => `
                 <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 hover:bg-white hover:shadow-md transition-all">
                     <div>
+                        <h5 class="text-sm font-bold text-slate-800 mb-1">${item.ArticuloNormalizado}</h5> <!-- NUEVO CAMPO VISUAL -->
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${item.Supermercado}</p>
-                        <h5 class="text-sm font-bold text-slate-800"><i class="far fa-calendar-alt mr-1 text-blue-400"></i> ${item.Fecha}</h5>
+                        <div class="text-xs text-gray-500 mt-1"><i class="far fa-calendar-alt mr-1 text-blue-400"></i> ${item.Fecha}</div>
                     </div>
                     <div class="text-right">
                         <span class="block text-lg font-black text-blue-600">${item.PrecioUnitario.toFixed(2)} €</span>
@@ -1395,6 +1413,486 @@
                     content.appendChild(el);
                 });
             }
+
+            // CALCULAR TOTAL DEL SIDEBAR CON COLOR SEMÁNTICO
+            const totalSum = detailsData.reduce((a,b) => a+b.Total, 0);
+            const sumColor = totalSum < 0 ? 'text-emerald-600' : 'text-red-600';
+            const sumEl = document.getElementById('sidebar-total-sum');
+            sumEl.innerText = totalSum.toFixed(2) + " €";
+            // Reset y aplicar color
+            sumEl.className = `text-xl font-black ${sumColor}`;
+
+            overlay.classList.remove('hidden');
+            setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            sidebar.classList.remove('translate-x-full');
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('details-sidebar');
+            const overlay = document.getElementById('details-overlay');
+            sidebar.classList.add('translate-x-full');
+            overlay.classList.add('opacity-0');
+            setTimeout(() => overlay.classList.add('hidden'), 300);
+        }
+
+        // --- ACTUALIZACIÓN DE ESTADO CON NUEVA ESTRUCTURA ---
+        async function togglePaid(ticketId) {
+            const isPaid = !paidTickets.has(ticketId); 
+            
+            if (isPaid) {
+                paidTickets.add(ticketId);
+            } else {
+                paidTickets.delete(ticketId);
+            }
+            localStorage.setItem('paid_tickets', JSON.stringify([...paidTickets]));
+            renderTable();
+
+            showToast("Sincronizando...", "blue");
+            
+            try {
+                // AHORA TENEMOS 4 CAMPOS EN EL ID
+                const [fecha, hora, superm, user] = ticketId.split('_');
+
+                const response = await fetch(UPDATE_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update_status',
+                        ticket_id: ticketId,
+                        date: fecha,
+                        time: hora, // Enviamos también la hora
+                        supermarket: superm,
+                        user: user,
+                        status: isPaid ? 'COBRADO' : 'PENDIENTE'
+                    })
+                });
+
+                if (response.ok) {
+                    showToast("Guardado en servidor", "green");
+                } else {
+                    console.warn("El servidor no respondió OK, pero el cambio local persiste.");
+                    showToast("Guardado localmente", "orange");
+                }
+            } catch (error) {
+                console.warn("No se pudo conectar al webhook de actualización", error);
+                showToast("Error de conexión (Guardado solo local)", "orange");
+            }
+        }
+
+        function exportToCSV() {
+            // USAR filteredTableData para exportar lo que se ve en tabla
+            if (!filteredTableData.length) return alert("No hay datos para exportar");
+
+            // Preparar datos con la marca de cobrado usando el nuevo formato de clave
+            const exportData = filteredTableData.map(item => {
+                const key = `${item.Fecha}_${item.Hora}_${item.Supermercado}_${item.Usuario}`;
+                const isPaid = paidTickets.has(key) ? "COBRADO" : "PENDIENTE";
+                return {
+                    ...item,
+                    Estado_Cobro: isPaid
+                };
+            });
+
+            // Convertir a CSV
+            const headers = Object.keys(exportData[0]);
+            const csvRows = [
+                headers.join(','), // Cabecera
+                ...exportData.map(row => headers.map(fieldName => {
+                    let val = row[fieldName];
+                    // Escapar comillas y convertir a string
+                    return `"${String(val).replace(/"/g, '""')}"`;
+                }).join(','))
+            ];
+
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `tickets_export_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            
+            // Usamos filteredTableData (Datos del Nuevo Webhook)
+            const groupedData = groupTickets(filteredTableData);
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const pageData = groupedData.slice(start, end);
+
+            // Función para generar color consistente basado en texto
+            const getCategoryStyle = (category) => {
+                const normalizedCat = String(category).toUpperCase().trim();
+                
+                // Mapeo específico solicitado y comunes
+                const specificMap = {
+                    'ROPA Y COMPLEMENTOS': 'bg-green-100 text-green-800 border-green-200', // Solicitado: Verde
+                    'CAFETERÍAS Y RESTAURANTES': 'bg-blue-100 text-blue-800 border-blue-200', // Solicitado: Azul
+                    'ALIMENTACIÓN': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                    'SUPERMERCADO': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                    'GASOLINA': 'bg-red-100 text-red-800 border-red-200',
+                    'COMBUSTIBLE': 'bg-red-100 text-red-800 border-red-200',
+                    'FARMACIA': 'bg-teal-100 text-teal-800 border-teal-200',
+                    'SALUD': 'bg-teal-100 text-teal-800 border-teal-200',
+                    'HOGAR': 'bg-orange-100 text-orange-800 border-orange-200',
+                    'MANTENIMIENTO': 'bg-gray-100 text-gray-800 border-gray-200',
+                    'OCIO': 'bg-purple-100 text-purple-800 border-purple-200',
+                    'VIAJES': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                    'EDUCACIÓN': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                    'REGALOS': 'bg-pink-100 text-pink-800 border-pink-200',
+                    'BAZAR': 'bg-amber-100 text-amber-800 border-amber-200'
+                };
+
+                // Búsqueda exacta
+                if (specificMap[normalizedCat]) return specificMap[normalizedCat];
+
+                // Búsqueda parcial si no hay exacta
+                for (const key in specificMap) {
+                    if (normalizedCat.includes(key)) return specificMap[key];
+                }
+
+                // Si no está en la lista, generamos uno basado en el hash del string
+                const colors = [
+                    'bg-slate-100 text-slate-800 border-slate-200',
+                    'bg-zinc-100 text-zinc-800 border-zinc-200',
+                    'bg-stone-100 text-stone-800 border-stone-200',
+                    'bg-red-100 text-red-800 border-red-200',
+                    'bg-orange-100 text-orange-800 border-orange-200',
+                    'bg-amber-100 text-amber-800 border-amber-200',
+                    'bg-yellow-100 text-yellow-800 border-yellow-200',
+                    'bg-lime-100 text-lime-800 border-lime-200',
+                    'bg-green-100 text-green-800 border-green-200',
+                    'bg-emerald-100 text-emerald-800 border-emerald-200',
+                    'bg-teal-100 text-teal-800 border-teal-200',
+                    'bg-cyan-100 text-cyan-800 border-cyan-200',
+                    'bg-sky-100 text-sky-800 border-sky-200',
+                    'bg-blue-100 text-blue-800 border-blue-200',
+                    'bg-indigo-100 text-indigo-800 border-indigo-200',
+                    'bg-violet-100 text-violet-800 border-violet-200',
+                    'bg-purple-100 text-purple-800 border-purple-200',
+                    'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200',
+                    'bg-pink-100 text-pink-800 border-pink-200',
+                    'bg-rose-100 text-rose-800 border-rose-200'
+                ];
+                
+                let hash = 0;
+                for (let i = 0; i < normalizedCat.length; i++) {
+                    hash = normalizedCat.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                const index = Math.abs(hash) % colors.length;
+                return colors[index];
+            };
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-400">No se encontraron datos</td></tr>';
+                document.getElementById('pagination-info').innerText = '0 de 0';
+                return;
+            }
+
+            pageData.forEach(row => {
+                const isPaid = paidTickets.has(row.id);
+                const tr = document.createElement('tr');
+                tr.className = `bg-white border-b hover:bg-gray-50 transition table-row-hover ${isPaid ? 'row-paid opacity-75' : ''}`;
+                
+                // Determinar el estilo de la categoría dinámicamente
+                let catClass = getCategoryStyle(row.Categoria);
+
+                // Determinar color del TOTAL (Ingreso vs Gasto)
+                const totalVal = parseFloat(row.Total);
+                const moneyColor = totalVal < 0 ? 'text-emerald-600' : 'text-red-600';
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${row.Fecha}</td>
+                    <td class="px-6 py-4">${row.Supermercado}</td>
+                    <td class="px-6 py-4 hidden sm:table-cell">
+                        <span class="${catClass} border text-[10px] font-bold mr-2 px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm whitespace-nowrap">
+                            ${row.Categoria}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right font-bold ${moneyColor}">${totalVal.toFixed(2)} €</td>
+                    <td class="px-6 py-4 text-center">
+                        <input type="checkbox" 
+                               class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                               ${isPaid ? 'checked' : ''}
+                               onclick="togglePaid('${row.id}')">
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('pagination-info').innerText = `Mostrando ${start + 1}-${Math.min(end, groupedData.length)} de ${groupedData.length}`;
+            document.getElementById('btn-prev').disabled = currentPage === 1;
+            document.getElementById('btn-next').disabled = end >= groupedData.length;
+        }
+
+        // --- COMPARADOR (VERSIÓN MEJORADA) ---
+        function openComparator() {
+            document.getElementById('comparator-modal').classList.remove('hidden');
+            document.getElementById('comparator-search').focus();
+        }
+
+        function closeComparator() {
+            document.getElementById('comparator-modal').classList.add('hidden');
+        }
+
+        function handleComparatorSearch(e) {
+            // Normalizar texto para quitar acentos y pasar a minúsculas
+            const normalize = (str) => String(str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            
+            const term = normalize(e.target.value);
+            const list = document.getElementById('comparator-list');
+            const results = document.getElementById('comparator-results');
+            const empty = document.getElementById('comparator-empty');
+
+            if (term.length < 2) { 
+                results.classList.add('hidden'); 
+                empty.classList.remove('hidden'); 
+                return; 
+            }
+
+            const dates = allData.map(d => new Date(d.Fecha));
+            const maxDate = new Date(Math.max.apply(null, dates));
+            const minDate = new Date(maxDate);
+            minDate.setDate(minDate.getDate() - 30); 
+
+            const matched = allData.filter(d => {
+                const dDate = new Date(d.Fecha);
+                // Comparación insensible a acentos
+                return normalize(d.ArticuloNormalizado).includes(term) && dDate >= minDate;
+            });
+            
+            if (matched.length === 0) {
+                if(charts.comparator) charts.comparator.destroy();
+                list.innerHTML = "";
+                results.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            results.classList.remove('hidden');
+            empty.classList.add('hidden');
+
+            // Ordenar por fecha descendente (más reciente primero)
+            matched.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha));
+
+            // Lógica para el gráfico (Mantenemos medias visuales para comparar)
+            const grouped = matched.reduce((acc, curr) => {
+                if(!acc[curr.Supermercado]) acc[curr.Supermercado] = [];
+                acc[curr.Supermercado].push(curr.PrecioUnitario);
+                return acc;
+            }, {});
+
+            const labels = Object.keys(grouped);
+            const averages = labels.map(l => grouped[l].reduce((a,b) => a+b, 0) / grouped[l].length);
+
+            if(charts.comparator) charts.comparator.destroy();
+            charts.comparator = new Chart(document.getElementById('comparatorChart'), {
+                type: 'bar',
+                data: { 
+                    labels: labels, 
+                    datasets: [{ 
+                        label: 'Precio Medio', 
+                        data: averages, 
+                        backgroundColor: '#2563eb', 
+                        borderRadius: 15 
+                    }] 
+                },
+                options: { 
+                    indexAxis: 'y', // GRÁFICO HORIZONTAL
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Lógica de Lista (DETALLE: Supermercado, Día, Precio)
+            list.innerHTML = matched.map(item => `
+                <div class="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 hover:bg-white hover:shadow-md transition-all">
+                    <div>
+                        <h5 class="text-sm font-bold text-slate-800 mb-1">${item.ArticuloNormalizado}</h5> <!-- NUEVO CAMPO VISUAL -->
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${item.Supermercado}</p>
+                        <div class="text-xs text-gray-500 mt-1"><i class="far fa-calendar-alt mr-1 text-blue-400"></i> ${item.Fecha}</div>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-lg font-black text-blue-600">${item.PrecioUnitario.toFixed(2)} €</span>
+                        <span class="text-[10px] text-slate-400">/ unidad</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- CHAT MULTI-FALLBACK ---
+        function toggleChat() {
+            const chat = document.getElementById('chat-window');
+            if (chat.classList.contains('hidden')) {
+                chat.classList.remove('hidden');
+                document.getElementById('chat-input').focus();
+            } else {
+                chat.classList.add('hidden');
+            }
+        }
+
+        function handleChatEnter(e) {
+            if(e.key === 'Enter') sendChatMessage();
+        }
+
+        function addMessage(text, isUser = true) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `p-3 rounded-2xl max-w-[85%] shadow-sm text-sm ${isUser ? 'msg-user rounded-br-none' : 'msg-bot rounded-bl-none'}`;
+            // USAR INNERHTML PARA RENDERIZAR <br> y <b>
+            div.innerHTML = text; 
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addSystemMessage(html) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = 'msg-system p-2 rounded my-2';
+            div.innerHTML = html;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            addMessage(text, true);
+            input.value = '';
+            
+            const btn = document.getElementById('chat-send-btn');
+            btn.disabled = true;
+            
+            const container = document.getElementById('chat-messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'chat-typing';
+            typingDiv.className = 'msg-bot p-3 rounded-2xl rounded-bl-none text-xs text-gray-500 italic';
+            typingDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-1"></i> Escribiendo...';
+            container.appendChild(typingDiv);
+            container.scrollTop = container.scrollHeight;
+
+            // Obtener el usuario actual para el contexto
+            const currentUser = localStorage.getItem('crm_session_user') || 'usuario_anonimo';
+
+            let success = false;
+
+            // Intentar con lista de proxies
+            for (const proxy of PROXIES) {
+                try {
+                    const target = proxy + encodeURIComponent(CHAT_WEBHOOK);
+                    const url = proxy === "" ? CHAT_WEBHOOK : target; 
+                    
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json' 
+                        },
+                        // AÑADIDO: sessionId para mantener el contexto en n8n
+                        body: JSON.stringify({ 
+                            message: text,
+                            sessionId: currentUser 
+                        })
+                    });
+
+                    if (response.ok) {
+                        const json = await response.json();
+                        
+                        // Normalizar datos (por si viene de proxy o directo)
+                        let data = (json.contents && proxy.includes('allorigins')) ? JSON.parse(json.contents) : json;
+
+                        // 1. Si es array (formato n8n habitual), tomamos el primer elemento
+                        if (Array.isArray(data) && data.length > 0) {
+                            data = data[0];
+                        }
+
+                        // 2. Extraer el texto
+                        let rawText = data.output || data.message || (typeof data === 'object' ? JSON.stringify(data) : data);
+
+                        // 3. Formatear (Markdown básico a HTML)
+                        let formattedText = String(rawText)
+                            .replace(/\n/g, '<br>')
+                            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+                            .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="underline text-blue-600">$1</a>');
+                        
+                        if(document.getElementById('chat-typing')) document.getElementById('chat-typing').remove();
+                        addMessage(formattedText, false);
+                        success = true;
+                        break; 
+                    }
+                } catch (e) {
+                    console.warn(`Chat falló con proxy ${proxy}:`, e);
+                }
+            }
+
+            if (!success) {
+                if(document.getElementById('chat-typing')) document.getElementById('chat-typing').remove();
+                addSystemMessage('<i class="fas fa-exclamation-triangle"></i> Error CORS: El servidor bloqueó la respuesta.<br>Configura <b>"Allowed Origins: *"</b> en el Webhook de n8n.');
+            }
+
+            btn.disabled = false;
+            input.focus();
+        }
+
+        // --- SIDEBAR DETALLES ---
+        function openSidebar(title, filterKey, filterValue) {
+            const sidebar = document.getElementById('details-sidebar');
+            const overlay = document.getElementById('details-overlay');
+            const content = document.getElementById('sidebar-content');
+            
+            document.getElementById('sidebar-title').innerText = filterValue;
+            
+            const dates = allData.map(d => new Date(d.Fecha));
+            const maxDate = new Date(Math.max.apply(null, dates));
+            const minDate = new Date(maxDate);
+            minDate.setDate(minDate.getDate() - 30); 
+
+            const detailsData = allData.filter(d => {
+                const dDate = new Date(d.Fecha);
+                return d[filterKey] === filterValue && dDate >= minDate;
+            });
+            
+            detailsData.sort((a,b) => new Date(b.Fecha) - new Date(a.Fecha));
+
+            document.getElementById('sidebar-subtitle').innerText = `Del ${minDate.toLocaleDateString()} al ${maxDate.toLocaleDateString()}`;
+            document.getElementById('sidebar-count').innerText = `${detailsData.length} tickets`;
+
+            content.innerHTML = '';
+            if(detailsData.length === 0) {
+                content.innerHTML = '<div class="text-center text-gray-400 mt-10"><i class="fas fa-inbox fa-2x mb-2"></i><br>Sin movimientos recientes</div>';
+            } else {
+                detailsData.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = "bg-white p-3 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow";
+                    el.innerHTML = `
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="font-bold text-gray-800 text-sm truncate w-3/4">${item.Articulo}</span>
+                            <span class="font-bold text-blue-600 text-sm">${item.Total.toFixed(2)}€</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs text-gray-500">
+                            <span><i class="far fa-calendar mr-1"></i>${item.Fecha}</span>
+                            <span class="bg-gray-100 px-2 py-0.5 rounded text-gray-600 truncate max-w-[100px]">${item.Supermercado}</span>
+                        </div>
+                    `;
+                    content.appendChild(el);
+                });
+            }
+
+            // CALCULAR TOTAL DEL SIDEBAR CON COLOR SEMÁNTICO
+            const totalSum = detailsData.reduce((a,b) => a+b.Total, 0);
+            const sumColor = totalSum < 0 ? 'text-emerald-600' : 'text-red-600';
+            const sumEl = document.getElementById('sidebar-total-sum');
+            sumEl.innerText = totalSum.toFixed(2) + " €";
+            // Reset y aplicar color
+            sumEl.className = `text-xl font-black ${sumColor}`;
 
             overlay.classList.remove('hidden');
             setTimeout(() => overlay.classList.remove('opacity-0'), 10);
